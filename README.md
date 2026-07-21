@@ -14,8 +14,9 @@ See [docs/SPEC.md](docs/SPEC.md) and [docs/DEMO.md](docs/DEMO.md).
 ```bash
 oc login ...
 export BRANCH=main
-export LLM_API_KEY='your-litemaas-key'
 ./scripts/bootstrap.sh
+# Bootstrap prompts for LiteMaaS/LLM URL, model, and API key and creates Secret llm-credentials.
+# Standalone: ./scripts/create-llm-secret.sh
 ```
 
 Push this repository to GitHub, then:
@@ -36,7 +37,9 @@ oc -n agent-azuresdk-demo-main get route agent
 cd app
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-export LLM_API_KEY=... LLM_BASE_URL=... LLM_MODEL=Qwen3.6-35B-A3B
+export LLM_API_KEY=... LLM_BASE_URL=... LLM_MODEL=...
 export DATABASE_URL=postgresql://rag:rag@localhost:5432/rag
 streamlit run main.py
 ```
+
+LLM credentials are never committed. Use `./scripts/create-llm-secret.sh` on the cluster.

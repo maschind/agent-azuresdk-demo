@@ -29,7 +29,7 @@ Both branches are buildable in parallel. Each has its own namespace (branch suff
 ## In scope
 
 - v1 and v2 as above; bootstrap per branch; demo runbook
-- LLM Secret (`LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`)
+- LLM Secret (`LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`) created via `scripts/create-llm-secret.sh` (CLI prompts; not stored in git)
 - v2: `LlamaStackDistribution`, Postgres Secrets, `remote::pgvector`, model switch LiteMaaS \| in-cluster vLLM
 
 ## Out of scope

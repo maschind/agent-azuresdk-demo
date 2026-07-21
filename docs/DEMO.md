@@ -9,14 +9,10 @@
 
 ```bash
 export BRANCH=main
-export GIT_REPO_URL=https://github.com/maschind/agent-azuresdk-demo.git
-export LLM_API_KEY='sk-...'          # LiteMaaS key
-export LLM_BASE_URL='https://litellm-litemaas.apps.prod.rhoai.rh-aiservices-bu.com/v1'
-export LLM_MODEL='Qwen3.6-35B-A3B'
-# Required for private GitHub repos (fine-grained PAT: Contents Read on this repo)
-export GITHUB_TOKEN='github_pat_...'
-export GITHUB_USER=maschind
+# Prompts on the CLI for LLM base URL, model, and API key; creates Secret llm-credentials
 ./scripts/bootstrap.sh
+# Or create/update the secret alone:
+#   BRANCH=main ./scripts/create-llm-secret.sh
 ```
 
 Namespace: `agent-azuresdk-demo-main`

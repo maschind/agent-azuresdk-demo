@@ -20,18 +20,9 @@ VLLM_BASE_URL = os.environ.get(
     "http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local/v1",
 )
 VLLM_MODEL = os.environ.get("VLLM_MODEL", "llama-32-3b-instruct")
-LITEMASS_BASE_URL = os.environ.get(
-    "LITEMASS_BASE_URL",
-    os.environ.get(
-        "LLM_BASE_URL",
-        "https://litellm-litemaas.apps.prod.rhoai.rh-aiservices-bu.com/v1",
-    ),
-)
-LITEMASS_MODEL = os.environ.get("LITEMASS_MODEL", os.environ.get("LLM_MODEL", "Qwen3.6-35B-A3B"))
-LLAMA_STACK_BASE_URL = os.environ.get(
-    "LLAMA_STACK_BASE_URL",
-    "http://llamastack-demo:8321/v1",
-)
+LITEMASS_BASE_URL = os.environ.get("LITEMASS_BASE_URL", os.environ.get("LLM_BASE_URL", ""))
+LITEMASS_MODEL = os.environ.get("LITEMASS_MODEL", os.environ.get("LLM_MODEL", ""))
+LLAMA_STACK_BASE_URL = os.environ.get("LLAMA_STACK_BASE_URL", "http://llamastack-demo:8321/v1")
 
 st.set_page_config(page_title="Azure SDK Agent Demo", page_icon="🟥", layout="wide")
 

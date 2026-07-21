@@ -27,11 +27,9 @@ esac
 GIT_REPO_URL="${GIT_REPO_URL:-https://github.com/maschind/agent-azuresdk-demo.git}"
 GITHUB_USER="${GITHUB_USER:-maschind}"
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"
-LLM_API_KEY="${LLM_API_KEY:-}"
-LLM_BASE_URL="${LLM_BASE_URL:-https://litellm-litemaas.apps.prod.rhoai.rh-aiservices-bu.com/v1}"
-LLM_MODEL="${LLM_MODEL:-Qwen3.6-35B-A3B}"
 SKIP_GITOPS="${SKIP_GITOPS:-false}"
 APPLY_DIRECT="${APPLY_DIRECT:-true}"
+SKIP_LLM_SECRET="${SKIP_LLM_SECRET:-false}"
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -43,11 +41,6 @@ need() {
 need oc
 need git
 
-if [[ -z "${LLM_API_KEY}" ]]; then
-  echo "Set LLM_API_KEY to your LiteMaaS (or provider) API key before running bootstrap." >&2
-  exit 1
-fi
-
 echo "==> Checking cluster login"
 oc whoami >/dev/null
 oc project default >/dev/null 2>&1 || true
@@ -56,12 +49,16 @@ echo "==> Ensuring namespace ${NS}"
 oc get ns "${NS}" >/dev/null 2>&1 || oc new-project "${NS}" >/dev/null
 oc project "${NS}" >/dev/null
 
-echo "==> Creating/updating Secret llm-credentials"
-oc -n "${NS}" create secret generic llm-credentials \
-  --from-literal=LLM_API_KEY="${LLM_API_KEY}" \
-  --from-literal=LLM_BASE_URL="${LLM_BASE_URL}" \
-  --from-literal=LLM_MODEL="${LLM_MODEL}" \
-  --dry-run=client -o yaml | oc apply -f -
+if [[ "${SKIP_LLM_SECRET}" != "true" ]]; then
+  echo "==> LLM credentials (interactive — nothing committed to git)"
+  BRANCH="${BRANCH}" NAMESPACE="${NS}" "${ROOT}/scripts/create-llm-secret.sh"
+else
+  if ! oc -n "${NS}" get secret llm-credentials >/dev/null 2>&1; then
+    echo "Secret llm-credentials missing. Run: BRANCH=${BRANCH} ./scripts/create-llm-secret.sh" >&2
+    exit 1
+  fi
+  echo "==> Reusing existing Secret llm-credentials (SKIP_LLM_SECRET=true)"
+fi
 
 if [[ -n "${GITHUB_TOKEN}" ]]; then
   echo "==> Creating/updating Secret github-basic-auth for Tekton git-clone"
@@ -74,7 +71,7 @@ if [[ -n "${GITHUB_TOKEN}" ]]; then
     --dry-run=client -o yaml | oc apply -f -
   rm -rf "${TMP}"
 else
-  echo "==> GITHUB_TOKEN not set; private repos need github-basic-auth for Tekton clone"
+  echo "==> GITHUB_TOKEN not set (optional for public repos)"
 fi
 
 if [[ ! -f "${PIPELINE_FILE}" ]]; then
