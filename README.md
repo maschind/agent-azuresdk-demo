@@ -1,45 +1,23 @@
 # agent-azuresdk-demo
 
-POC: Azure AI Python client + Streamlit agent on OpenShift, with pgvector RAG (upload/delete in UI), Tekton builds, and OpenShift GitOps.
+POC: Azure AI Inference SDK agents on OpenShift → OpenShift AI (Llama Stack / KServe).
 
-| Version | Branch | Namespace |
-|---------|--------|-----------|
-| v1 | `main` | `agent-azuresdk-demo-main` |
-| v2 | `ogx` | `agent-azuresdk-demo-ogx` |
+| Version | Branch | Namespace | Role |
+|---------|--------|-----------|------|
+| v1 | `main` | `agent-azuresdk-demo-main` | Plain OpenShift (no OpenShift AI) |
+| v2 | `ogx` | `agent-azuresdk-demo-ogx` | Bridge: Stack chat, app-pgvector RAG |
+| v3 | `ogx-native` | `agent-azuresdk-demo-ogx-native` | Full OpenShift AI (Stack RAG + KServe) |
 
-See [docs/SPEC.md](docs/SPEC.md) and [docs/DEMO.md](docs/DEMO.md).
+**Docs (identical on all three branches):** [docs/SPEC.md](docs/SPEC.md) · [docs/DEMO.md](docs/DEMO.md)
 
-## Quick start (v1)
+This checkout is branch **`main`** (v1).
 
-```bash
-oc login ...
-export BRANCH=main
-./scripts/bootstrap.sh
-# Bootstrap prompts for LiteMaaS/LLM URL, model, and API key and creates Secret llm-credentials.
-# Standalone: ./scripts/create-llm-secret.sh
-```
+## GitOps rules
 
-Push this repository to GitHub, then:
+- Runtime manifests under `deploy/overlays/<branch>` applied **only** by Argo CD.
+- Release: `images.newTag` + git push (`scripts/gitops-release.sh`). No routine `oc apply -k` / `oc set image` / `oc set env`.
+- Secrets out of band: `scripts/create-llm-secret.sh`.
 
-```bash
-oc create -f deploy/tekton/pipelinerun-main.yaml -n agent-azuresdk-demo-main
-# After Succeeded, ensure deploy/overlays/main/kustomization.yaml newTag matches
-oc apply -k deploy/overlays/main
-oc -n agent-azuresdk-demo-main get route agent
-```
+## Quick start
 
-**App release:** change only `images[].newTag` in `deploy/overlays/main/kustomization.yaml`.
-
-## Local run (optional)
-
-```bash
-# Postgres with pgvector on localhost:5432, then:
-cd app
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-export LLM_API_KEY=... LLM_BASE_URL=... LLM_MODEL=...
-export DATABASE_URL=postgresql://rag:rag@localhost:5432/rag
-streamlit run main.py
-```
-
-LLM credentials are never committed. Use `./scripts/create-llm-secret.sh` on the cluster.
+Follow [docs/DEMO.md](docs/DEMO.md) for the version you are demoing (`BRANCH=main|ogx|ogx-native`).

@@ -1,46 +1,96 @@
 # Demo runbook
 
-## Prerequisites
+Single source of truth for **v1**, **v2**, and **v3**. Keep this file identical on branches `main`, `ogx`, and `ogx-native`.
 
-- `oc login` as a user who can create projects and install operators (cluster-admin for GitOps bootstrap)
-- Repo cloned; network access to LiteMaaS from the cluster
+See [SPEC.md](SPEC.md) for architecture and decisions.
 
-## Bootstrap v1 (`main`)
+## Story beats
+
+1. **v1** (`main`): Azure SDK on plain OpenShift — chat → LiteMaaS, RAG → app pgvector. **No OpenShift AI.**
+2. **v2** (`ogx`): Same agent + same RAG; **default chat → Llama Stack**. Optional bypass `litemaas` / `vllm`.
+3. **v3** (`ogx-native`): Full OpenShift AI — chat + ingest + retrieve via Stack / KServe (implement on `ogx-native`; see SPEC § Version 3).
+
+Success line: *We did not rewrite the agent — we moved AI dependencies onto OpenShift AI.*
+
+---
+
+## Version matrix
+
+| | v1 | v2 | v3 |
+|--|----|----|----|
+| Branch | `main` | `ogx` | `ogx-native` |
+| Namespace | `agent-azuresdk-demo-main` | `agent-azuresdk-demo-ogx` | `agent-azuresdk-demo-ogx-native` |
+| Chat | LiteMaaS (direct) | Stack (default) | Stack only |
+| RAG | App pgvector | App pgvector | Stack vector IO |
+| Status | Implemented | Implemented | Spec |
+
+---
+
+## Bootstrap (once per version)
 
 ```bash
-export BRANCH=main
-# Prompts on the CLI for LLM base URL, model, and API key; creates Secret llm-credentials
-./scripts/bootstrap.sh
-# Or create/update the secret alone:
-#   BRANCH=main ./scripts/create-llm-secret.sh
+# v1
+git checkout main && export BRANCH=main && ./scripts/bootstrap.sh
+
+# v2
+git checkout ogx && export BRANCH=ogx && ./scripts/bootstrap.sh
+
+# v3 (when deployables exist)
+git checkout ogx-native && export BRANCH=ogx-native && ./scripts/bootstrap.sh
 ```
 
-Namespace: `agent-azuresdk-demo-main`
-
-## Build and tag
+Secrets only (out of band — never commit keys):
 
 ```bash
-# Run Tekton pipeline (see scripts or oc create -f)
-# Then manually set the image tag in deploy/overlays/main/kustomization.yaml:
-#   newTag: v0.1.0
-# Commit, push; Argo syncs (or oc apply -k deploy/overlays/main)
+BRANCH=<main|ogx|ogx-native> ./scripts/create-llm-secret.sh
+# After rotating secrets: oc -n <namespace> rollout restart deploy/agent
 ```
 
-## Click path
+Bootstrap creates NS, out-of-band Secrets, Tekton, Argo RBAC + Application. It does **not** `oc apply -k` the app overlay (strict GitOps).
 
-1. Open the Route URL printed by bootstrap / `oc get route -n agent-azuresdk-demo-main`
-2. **Upload** a `.txt` / `.md` / `.pdf` (≤ 5 MB) with a distinctive fact (e.g. “Project Codename is BlueHeron”)
-3. Ask: *What is the project codename in the knowledge base?*
-4. Confirm the UI shows a `search_knowledge_base` tool call and a grounded answer
-5. **Delete** the document and ask again — answer should no longer cite that fact
+---
 
-## Sample prompts
+## Build and release (strict GitOps)
 
-- “Summarize the uploaded documents.”
-- “What facts did you find about &lt;topic in your file&gt;?”
-- “Search the knowledge base for deployment steps.”
+Same pattern for every branch (`BRANCH` / overlay name match):
 
-## Bootstrap v2 (`ogx`)
+```bash
+export BRANCH=<main|ogx|ogx-native>   # and checkout that branch
+NS=agent-azuresdk-demo-${BRANCH}
 
-Checkout `ogx`, set `BRANCH=ogx`, run `./scripts/bootstrap.sh`.  
-Namespace: `agent-azuresdk-demo-ogx`. Use the UI/env model switch for LiteMaaS vs in-cluster vLLM.
+# 1) Build + push image (Tekton → internal registry)
+oc create -f deploy/tekton/pipelinerun-${BRANCH}.yaml -n "${NS}"
+
+# 2) Bump ONLY images.newTag in git
+BRANCH=${BRANCH} ./scripts/gitops-release.sh v0.1.1
+git add deploy/overlays/${BRANCH}/kustomization.yaml
+git commit -m "Release agent v0.1.1 (${BRANCH})"
+git push origin "${BRANCH}"
+
+# 3) Argo CD auto-syncs. Do not: oc apply -k, oc set image, oc set env
+oc -n openshift-gitops get application "agent-azuresdk-demo-${BRANCH}"
+```
+
+---
+
+## Click paths
+
+### v1 — plain OpenShift
+
+1. `oc get route agent -n agent-azuresdk-demo-main`
+2. Upload a document → ask a grounded question → confirm tool call → delete
+3. Note: no Llama Stack; chat goes to LiteMaaS
+
+### v2 — bridge (OpenShift AI for chat)
+
+1. `oc get route agent -n agent-azuresdk-demo-ogx`
+2. Confirm sidebar **LLM endpoint** defaults to **`llamastack`**
+3. Upload → grounded question → tool call (RAG still **app-pgvector**) → delete
+4. Optionally switch to `litemaas` or `vllm` to show bypass vs Stack
+
+### v3 — full OpenShift AI (when implemented)
+
+1. `oc get route agent -n agent-azuresdk-demo-ogx-native`
+2. Chat only via Stack; no LiteMaaS/vLLM agent bypass
+3. Upload / list / delete via Stack; grounded answers from Stack vector IO
+4. In OpenShift AI console: show LSD Ready + InferenceService; optionally stop Stack/ISVC to prove platform dependency
