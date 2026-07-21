@@ -307,6 +307,23 @@ sequenceDiagram
 | `tracing.py` | MLflow runs + spans |
 | `config.py` / `documents.py` | Env + upload validation |
 
+**Removed vs v2:** `azure-*`, `agent/loop.py`, `tools/rag.py`, `db.py`, `embeddings.py`, `stack_kb.py`, provider switcher, local `fastembed` / app-pgvector RAG.
+
+### Compare code (v2 → v3)
+
+Prefer GitHub compare for demos:
+
+https://github.com/maschind/agent-azuresdk-demo/compare/ogx...ogx-native
+
+```bash
+git fetch origin
+git diff origin/ogx..origin/ogx-native -- app/ Dockerfile
+git diff origin/ogx..origin/ogx-native -- deploy/overlays/ogx deploy/overlays/ogx-native deploy/base
+git diff --stat origin/ogx..origin/ogx-native -- app/ Dockerfile deploy/
+```
+
+Narrative delta: [CHANGES.md](CHANGES.md) § v2 → v3. Runbook copy: [DEMO.md](DEMO.md) § Compare code.
+
 ### OpenShift AI demo checklist
 
 **P0**
