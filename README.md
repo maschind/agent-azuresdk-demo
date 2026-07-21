@@ -1,19 +1,27 @@
-# agent-azuresdk-demo (`ogx-native` / v3)
+# agent-azuresdk-demo
 
-**Full OpenShift AI** variant (spec → implementation). Same Azure SDK agent as v1/v2; inference + embeddings + RAG via Llama Stack / KServe.
+POC: Azure AI Inference SDK agents on OpenShift → OpenShift AI (Llama Stack / KServe).
 
-| Version | Branch | Namespace |
-|---------|--------|-----------|
-| v1 | `main` | `agent-azuresdk-demo-main` |
-| v2 | `ogx` | `agent-azuresdk-demo-ogx` |
-| v3 | `ogx-native` (this branch) | `agent-azuresdk-demo-ogx-native` |
+| Version | Branch | Namespace | Role |
+|---------|--------|-----------|------|
+| v1 | `main` | `agent-azuresdk-demo-main` | Plain OpenShift (no OpenShift AI) |
+| v2 | `ogx` | `agent-azuresdk-demo-ogx` | Bridge: Stack chat, app-pgvector RAG |
+| v3 | `ogx-native` | `agent-azuresdk-demo-ogx-native` | Full OpenShift AI (Stack RAG + KServe) |
 
-See [docs/SPEC-v3.md](docs/SPEC-v3.md) (authoritative for this branch) and [docs/SPEC.md](docs/SPEC.md).
+**Docs (identical on all three branches):** [docs/SPEC.md](docs/SPEC.md) · [docs/DEMO.md](docs/DEMO.md)
+
+This checkout is branch **`ogx-native`** (v3).
 
 ## Status
 
-Specification only. Deployables (`deploy/overlays/ogx-native`, Tekton, Argo Application) to be added here — not on `ogx`.
+Specification in docs; deployables (`deploy/overlays/ogx-native`, Tekton, Argo Application) to be added on this branch.
 
 ## GitOps rules
 
-Same as v2: Argo CD is the only applicator of overlays; release via `images.newTag` + git push. Secrets out of band via `scripts/create-llm-secret.sh`.
+- Runtime manifests under `deploy/overlays/<branch>` applied **only** by Argo CD.
+- Release: `images.newTag` + git push (`scripts/gitops-release.sh`). No routine `oc apply -k` / `oc set image` / `oc set env`.
+- Secrets out of band: `scripts/create-llm-secret.sh`.
+
+## Quick start
+
+Follow [docs/DEMO.md](docs/DEMO.md) for the version you are demoing (`BRANCH=main|ogx|ogx-native`).
