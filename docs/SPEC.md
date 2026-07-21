@@ -10,7 +10,7 @@ Extensible POC: Azure AI Python client + LiteMaaS / Llama Stack, RAG, Streamlit 
 |---------|------------|-----------|--------|
 | **v1** | `main` | `agent-azuresdk-demo-main` | Plain OpenShift; Azure SDK → LiteMaaS; RAG → **app** pgvector + local embeddings. **No OpenShift AI.** |
 | **v2** | `ogx` | `agent-azuresdk-demo-ogx` | **Bridge:** same agent + **same app-pgvector RAG**; **default chat** via Llama Stack `/v1`. Optional bypass to LiteMaaS / vLLM. |
-| **v3** | `ogx-native` | `agent-azuresdk-demo-ogx-native` | **Full OpenShift AI:** same Azure SDK agent; inference + embeddings + RAG via Stack / KServe. **Spec → implement on `ogx-native`.** |
+| **v3** | `ogx-native` | `agent-azuresdk-demo-ogx-native` | **Full OpenShift AI:** same Azure SDK agent; Stack / KServe RAG + inference; **TrustyAI** (safety/guardrails) + **MLflow** observability. **Spec → implement on `ogx-native`.** |
 
 Branches and namespaces stay separate so demos can run side-by-side.
 
@@ -18,7 +18,7 @@ Branches and namespaces stay separate so demos can run side-by-side.
 
 1. **Today (v1):** Build agents with Azure SDK, containerize, deploy on OpenShift — no OpenShift AI.
 2. **First step (v2):** Keep the agent and DIY RAG; point chat at Llama Stack (config-only) to land on OpenShift AI.
-3. **Platform (v3):** Keep the Azure SDK agent; move RAG/embeddings/serving onto OpenShift AI for full platform value.
+3. **Platform (v3):** Keep the Azure SDK agent; move RAG/embeddings/serving onto OpenShift AI; add **TrustyAI** guardrails/eval and **MLflow** experiment/trace observability.
 
 Takeaway: *keep the Azure SDK agent; move AI plumbing onto OpenShift AI without a rewrite.*
 
@@ -34,6 +34,8 @@ Takeaway: *keep the Azure SDK agent; move AI plumbing onto OpenShift AI without 
 | Chat bypass (v2) | Optional UI: `litemaas` \| `vllm` (contrast only; not the story) |
 | Chat (v3) | Azure SDK → Llama Stack `/v1` only (no agent-level bypass) |
 | Serving (v3) | Stack → **KServe vLLM** (primary); LiteMaaS may be a Stack *provider* |
+| Safety (v3) | **TrustyAI** with Llama Stack (`trustyai_fms` / Guardrails Orchestrator); demo unsafe vs blocked prompt |
+| Observability (v3) | **MLflow** (RHOAI MLflow Operator): experiment runs + tracing for agent/Stack turns |
 | UI | Streamlit: chat, tool traces, document list/upload/delete |
 | Doc formats | `.txt`, `.md`, `.pdf` (max 5 MB) |
 | Starter corpus | Empty |
@@ -46,7 +48,7 @@ Takeaway: *keep the Azure SDK agent; move AI plumbing onto OpenShift AI without 
 - v1 and v2 as implemented; bootstrap per branch; demo runbook ([DEMO.md](DEMO.md))
 - LLM Secret (`LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`) via `scripts/create-llm-secret.sh` (not in git)
 - v2: `LlamaStackDistribution`, Postgres for **app RAG** (+ Stack metadata as configured), default Azure SDK → Stack `/v1`
-- v3: full platform path below (implement on `ogx-native`)
+- v3: full platform path below including TrustyAI + MLflow (implement on `ogx-native`)
 
 ## Out of scope
 
@@ -54,7 +56,7 @@ Takeaway: *keep the Azure SDK agent; move AI plumbing onto OpenShift AI without 
 - Vault/ESS, SSO, HA Postgres, GitHub Actions
 - OCR, multi-user document ACLs, preloaded sample docs
 - Rewriting the agent onto the Llama Stack Python SDK as the primary client
-- v2 does **not** move RAG onto Stack (that is v3)
+- v2 does **not** move RAG onto Stack, TrustyAI, or MLflow (that is v3)
 
 ## Extension points
 
@@ -211,7 +213,7 @@ flowchart LR
 
 1. Same agent contract — `azure-ai-inference` chat + tool-calling; tool name `search_knowledge_base` unchanged.
 2. OpenShift AI on the critical path — removing Stack/KServe breaks the demo.
-3. Show breadth of RHOAI: Llama Stack Distribution, KServe/InferenceService, Stack vector IO + embeddings; optional TrustyAI / Model Registry / DSPA ingest.
+3. Show breadth of RHOAI: Llama Stack Distribution, KServe/InferenceService, Stack vector IO + embeddings, **TrustyAI** (guardrails/safety via Stack), **MLflow** (runs + traces).
 4. Strict GitOps; side-by-side with v1/v2 via dedicated branch + namespace.
 
 ### Decisions (v3)
@@ -225,6 +227,9 @@ flowchart LR
 | Doc ingest | UI → Stack vector-store / RAG APIs |
 | App Postgres | Not used for RAG (optional Stack metadata only) |
 | UI provider switch | No direct LiteMaaS/vLLM; upstream switch is LSD config |
+| TrustyAI | **Enabled** — Guardrails Orchestrator / `trustyai_fms` as Llama Stack safety provider; DSC `trustyai` Managed; demo at least one blocked/flagged prompt |
+| MLflow | **Enabled** — RHOAI MLflow Operator (`mlflowoperators` Managed); log agent turns / Stack calls as runs + OpenTelemetry-style traces viewable in MLflow UI |
+| Platform prereq | DataScienceCluster: Llama Stack, TrustyAI, MLflow components Managed (cluster-admin / bootstrap note) |
 
 ### Runtime
 
@@ -240,6 +245,7 @@ flowchart TB
       Route --> UI
       UI -->|"Azure_SDK_chat_tools"| StackSvc
       UI -->|"ingest_list_delete_query_via_Stack"| StackSvc
+      UI -->|"log_traces_runs"| MLflow
       LSD --> StackSvc
     end
     subgraph rhoai [OpenShift_AI]
@@ -248,16 +254,19 @@ flowchart TB
       KServe[KServe_InferenceService_vLLM]
       Emb[Stack_embedding_provider]
       Vec[Stack_vector_IO_Milvus_or_pgvector]
+      Trusty[TrustyAI_Guardrails_FMS]
+      MLflow[MLflow_Operator_UI]
       StackSvc --> KServe
       StackSvc --> Emb
       StackSvc --> Vec
-      Trusty[TrustyAI_optional]
-      StackSvc -.-> Trusty
+      StackSvc -->|"safety_shields"| Trusty
+      StackSvc -.->|"optional_eval_LMEval"| Trusty
     end
   end
   LiteMaaS[LiteMaaS_optional_Stack_provider]
   StackSvc -.->|optional_provider| LiteMaaS
   User --> Route
+  User -->|"observe_runs_traces"| MLflow
 ```
 
 ### Sequence (RAG turn)
@@ -310,6 +319,8 @@ sequenceDiagram
 - [ ] KServe-served model for generation
 - [ ] Document ingest + delete via Stack
 - [ ] `search_knowledge_base` grounded from Stack vector IO
+- [ ] **TrustyAI** guardrails on path (blocked/flagged sample prompt via Stack safety)
+- [ ] **MLflow** run + trace visible for a demo chat turn
 - [ ] GitOps Application Synced/Healthy
 
 **P1**
@@ -317,30 +328,31 @@ sequenceDiagram
 - [ ] Embeddings fully via Stack (no local ONNX in agent)
 - [ ] LSD providers: in-cluster vLLM and LiteMaaS (switch at Stack, not agent)
 - [ ] UI shows Stack model id + provider
+- [ ] TrustyAI LM-Eval (or Stack eval provider) smoke eval against the served model
+- [ ] MLflow experiment named for the demo (`agent-azuresdk-demo-ogx-native`) with params/metrics
 
 **P2 (stretch)**
 
-- [ ] TrustyAI / guardrails sample
 - [ ] Model Registry reference
 - [ ] Optional DSPA/Tekton batch ingest
-- [ ] Metrics note in demo
+- [ ] Platform-wide RHOAI observability dashboards (metrics/alerts TP)
 
 ### Deploy layout (branch `ogx-native`)
 
 ```
 deploy/
-  overlays/ogx-native/
+  overlays/ogx-native/          # agent, LSD (safety providers), MLflow wiring notes/env
   gitops/application-ogx-native.yaml
   tekton/pipeline-ogx-native.yaml
 ```
 
-Bootstrap: `BRANCH=ogx-native ./scripts/bootstrap.sh`.
+Bootstrap: `BRANCH=ogx-native ./scripts/bootstrap.sh` (document DSC prerequisites: TrustyAI + MLflow Managed).
 
 ### Open questions (before build)
 
 1. Stack OpenAI-compatible RAG helpers vs raw vector-IO REST for ingest?
 2. Thin Postgres for Stack metadata vs all-inline Milvus?
-3. TrustyAI in or out for the first V3 slice?
+3. MLflow: agent-side OpenTelemetry export vs Stack/provider-native tracing — prefer whichever lands with least agent change?
 
 ---
 
@@ -357,4 +369,4 @@ Bootstrap: `BRANCH=ogx-native ./scripts/bootstrap.sh`.
 | Shared | Pipeline builds image; `newTag` + push → Argo `Synced`/`Healthy`; upload → RAG tool → grounded answer → delete |
 | v1 | Works **without** Llama Stack / OpenShift AI |
 | v2 | Default chat via Stack; RAG still app-pgvector; Azure SDK config-first |
-| v3 | Stack/KServe on critical path for chat **and** RAG; stopping Stack/ISVC breaks the demo; agent diff from v2 limited to RAG/doc adapters + env |
+| v3 | Stack/KServe on critical path for chat **and** RAG; TrustyAI blocks/flags a demo prompt; MLflow shows a run/trace for a turn; stopping Stack/ISVC breaks the demo; agent diff from v2 limited to RAG/doc adapters + observability hooks + env |
