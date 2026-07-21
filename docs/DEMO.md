@@ -4,7 +4,7 @@
 
 1. **v1** (`main`): Azure SDK on plain OpenShift — chat → LiteMaaS, RAG → app pgvector. No OpenShift AI.
 2. **v2** (`ogx`): Same agent + same RAG; **default chat → Llama Stack**. Optional bypass `litemaas` / `vllm`.
-3. **v3** (spec): Full OpenShift AI — see [SPEC-v3.md](SPEC-v3.md) (not deployed yet).
+3. **v3** (`ogx-native`, spec): Full OpenShift AI — see [SPEC-v3.md](SPEC-v3.md) (`git checkout ogx-native`).
 
 ## Bootstrap v2 (once)
 

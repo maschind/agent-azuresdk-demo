@@ -1,12 +1,12 @@
 # agent-azuresdk-demo (`ogx` / v2)
 
-Bridge demo: same Azure SDK agent as v1, **default chat via Llama Stack**, RAG still app-pgvector. Full platform path is **v3** ([docs/SPEC-v3.md](docs/SPEC-v3.md)).
+Bridge demo: same Azure SDK agent as v1, **default chat via Llama Stack**, RAG still app-pgvector. Full platform path is **v3** on branch [`ogx-native`](https://github.com/maschind/agent-azuresdk-demo/tree/ogx-native) ([docs/SPEC-v3.md](docs/SPEC-v3.md)).
 
 | Version | Branch | Namespace |
 |---------|--------|-----------|
 | v1 | `main` | `agent-azuresdk-demo-main` |
 | v2 | `ogx` (this branch) | `agent-azuresdk-demo-ogx` |
-| v3 | `ogx` overlay `ogx-v3` (spec) | `agent-azuresdk-demo-ogx-v3` |
+| v3 | `ogx-native` (spec) | `agent-azuresdk-demo-ogx-native` |
 
 See [docs/SPEC.md](docs/SPEC.md), [docs/SPEC-v3.md](docs/SPEC-v3.md), and [docs/DEMO.md](docs/DEMO.md).
 

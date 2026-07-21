@@ -8,9 +8,9 @@ Extensible POC: Azure AI Python client + LiteMaaS / Llama Stack, RAG, Streamlit 
 |---------|------------|-----------|--------|
 | **v1** | `main` | `agent-azuresdk-demo-main` | Plain OpenShift; Azure SDK → LiteMaaS; RAG → **app** pgvector + local embeddings. **No OpenShift AI.** |
 | **v2** | `ogx` | `agent-azuresdk-demo-ogx` | **Bridge:** same agent + **same app-pgvector RAG**; **default chat** via Llama Stack `/v1`. Optional bypass to LiteMaaS / vLLM. |
-| **v3** | `ogx` (overlay `ogx-v3`) | `agent-azuresdk-demo-ogx-v3` | **Full OpenShift AI:** same Azure SDK agent; inference + embeddings + RAG via Stack / KServe. See [SPEC-v3.md](SPEC-v3.md). |
+| **v3** | `ogx-native` | `agent-azuresdk-demo-ogx-native` | **Full OpenShift AI:** same Azure SDK agent; inference + embeddings + RAG via Stack / KServe. See [SPEC-v3.md](SPEC-v3.md). |
 
-v1 and v2 run side-by-side. V3 is specified for `ogx` only (new overlay/namespace; does not replace v2 until implemented).
+v1 (`main`), v2 (`ogx`), and v3 (`ogx-native`) are separate branches/namespaces so demos can run side-by-side.
 
 ## Customer narrative
 
@@ -33,7 +33,7 @@ v1 and v2 run side-by-side. V3 is specified for `ogx` only (new overlay/namespac
 | Starter corpus | Empty |
 | Build | Tekton per branch/overlay → internal registry |
 | Deploy | **Strict GitOps:** Argo CD only applicator of `deploy/overlays/*`; release = `images.newTag` + git push (`scripts/gitops-release.sh`). No routine `oc apply -k` / `oc set image` / `oc set env`. |
-| Git layout | Clean split: v1 on `main`; v2 (+ future v3 overlay) on `ogx` |
+| Git layout | Clean split: v1 → `main`; v2 → `ogx`; v3 → `ogx-native` |
 
 ## In scope
 
@@ -194,9 +194,9 @@ flowchart LR
 
 ---
 
-## Architecture — Version 3 (`ogx` / `ogx-v3`)
+## Architecture — Version 3 (`ogx-native`)
 
-Full specification: **[SPEC-v3.md](SPEC-v3.md)**.
+Full specification: **[SPEC-v3.md](SPEC-v3.md)** (implemented on branch `ogx-native`).
 
 Summary: same Azure SDK agent; chat **and** RAG/embeddings via Llama Stack; KServe vLLM on the path; app pgvector RAG removed.
 

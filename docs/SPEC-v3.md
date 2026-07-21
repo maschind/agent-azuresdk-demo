@@ -1,19 +1,22 @@
-# Version 3 — Full OpenShift AI strength (`ogx` only)
+# Version 3 — Full OpenShift AI strength
 
 **Status:** Spec only (not implemented).  
-**Branch:** `ogx`  
-**Proposed overlay / namespace:** `deploy/overlays/ogx-v3` → `agent-azuresdk-demo-ogx-v3`  
+**Git branch:** `ogx-native` (separate from v2 `ogx`)  
+**Namespace:** `agent-azuresdk-demo-ogx-native`  
+**Overlay:** `deploy/overlays/ogx-native`  
 **Audience:** Customer who already builds agents with the **Azure AI Inference SDK**, containerizes them, and today runs on plain OpenShift (see v1). V3 shows the same agent pattern taking **maximum value from OpenShift AI**.
+
+> Implementation and deployables for v3 live on branch **`ogx-native`**. Branch `ogx` remains the v2 bridge demo.
 
 ---
 
 ## Narrative
 
-| Version | Pitch |
-|---------|--------|
-| **v1** (`main`) | Azure SDK agent on OpenShift; **no** OpenShift AI. Chat → LiteMaaS. RAG → app-owned pgvector + local embeddings. |
-| **v2** (`ogx`) | **Bridge:** same agent + same app-pgvector RAG; **default chat** through Llama Stack (`/v1`). Optional bypass to LiteMaaS / vLLM for contrast. |
-| **v3** (`ogx-v3`) | **Platform:** same Azure SDK chat/tool loop; **inference + embeddings + RAG** go through OpenShift AI (Llama Stack + KServe). App stops owning the vector DB path. |
+| Version | Branch | Pitch |
+|---------|--------|--------|
+| **v1** | `main` | Azure SDK agent on OpenShift; **no** OpenShift AI. Chat → LiteMaaS. RAG → app-owned pgvector + local embeddings. |
+| **v2** | `ogx` | **Bridge:** same agent + same app-pgvector RAG; **default chat** through Llama Stack (`/v1`). Optional bypass to LiteMaaS / vLLM. |
+| **v3** | `ogx-native` | **Platform:** same Azure SDK chat/tool loop; **inference + embeddings + RAG** go through OpenShift AI (Llama Stack + KServe). App stops owning the vector DB path. |
 
 Customer takeaway: *keep the Azure SDK agent; move AI plumbing onto OpenShift AI without a rewrite.*
 
@@ -29,7 +32,7 @@ Customer takeaway: *keep the Azure SDK agent; move AI plumbing onto OpenShift AI
    - Stack **vector IO** + **embedding** providers
    - (Optional stretch) TrustyAI / guardrails, Model Registry pointer, DSPA ingest job
 4. **Strict GitOps** — same rules as v1/v2 (Argo only; `images.newTag` releases).
-5. **Side-by-side** with v1/v2 via a dedicated namespace (do not overwrite v2).
+5. **Side-by-side** with v1/v2 via dedicated branch + namespace (does not replace `ogx`).
 
 ## Non-goals
 
@@ -52,7 +55,7 @@ Customer takeaway: *keep the Azure SDK agent; move AI plumbing onto OpenShift AI
 | Doc ingest | UI → Stack vector-store / RAG APIs (register, insert, delete, query) |
 | App Postgres | **Not** used for RAG in v3 (may disappear from overlay, or keep only if Stack metadata still needs it) |
 | UI provider switch | Hide direct LiteMaaS/vLLM; optional “Stack upstream” is config on LSD, not agent env |
-| Delivery | Tekton build + Argo Application `agent-azuresdk-demo-ogx-v3` |
+| Delivery | Tekton build + Argo Application `agent-azuresdk-demo-ogx-native` (`targetRevision: ogx-native`) |
 
 ---
 
@@ -64,7 +67,7 @@ Customer takeaway: *keep the Azure SDK agent; move AI plumbing onto OpenShift AI
 flowchart TB
   User[Demo_User]
   subgraph ocp [OpenShift_cluster]
-    subgraph ns [namespace_agent_azuresdk_demo_ogx_v3]
+    subgraph ns [namespace_agent_azuresdk_demo_ogx_native]
       Route[Route]
       UI[Streamlit_Agent_Pod]
       LSD[LlamaStackDistribution]
@@ -125,8 +128,8 @@ sequenceDiagram
 
 ### What changes in the app (minimal)
 
-| Area | v2 | v3 |
-|------|----|----|
+| Area | v2 (`ogx`) | v3 (`ogx-native`) |
+|------|------------|-------------------|
 | `agent/loop.py` | Unchanged (Azure client) | Unchanged |
 | `tools/rag.py` | `db.similarity_search` | Stack query client |
 | `main.py` ingest/list/delete | `db.*` + `embed_texts` | Stack vector-store APIs |
@@ -161,27 +164,27 @@ sequenceDiagram
 
 ---
 
-## Deploy layout (proposed)
+## Deploy layout (on branch `ogx-native`)
 
 ```
 deploy/
   overlays/
-    ogx/          # v2 (unchanged story)
-    ogx-v3/       # v3 — LSD + agent without app pgvector RAG
+    ogx-native/              # v3 runtime (no app-pgvector RAG)
   gitops/
-    application-ogx.yaml
-    application-ogx-v3.yaml   # targetRevision: ogx, path: deploy/overlays/ogx-v3
+    application-ogx-native.yaml   # targetRevision: ogx-native
+  tekton/
+    pipeline-ogx-native.yaml
 ```
 
-Bootstrap: `BRANCH=ogx-v3` or `VERSION=v3` flag extending `scripts/bootstrap.sh`.
+Bootstrap: `BRANCH=ogx-native ./scripts/bootstrap.sh`.
 
 ---
 
 ## Demo script (customer-facing)
 
-1. **v1** — “Today”: Azure SDK → LiteMaaS, DIY pgvector; no RHOAI.
-2. **v2** — “First step”: flip chat to Stack; RAG still DIY (low risk).
-3. **v3** — “Full platform”: same UI/tools; ingest + retrieve + generate all on OpenShift AI; show LSD + InferenceService in console.
+1. **v1** (`main`) — “Today”: Azure SDK → LiteMaaS, DIY pgvector; no RHOAI.
+2. **v2** (`ogx`) — “First step”: flip chat to Stack; RAG still DIY (low risk).
+3. **v3** (`ogx-native`) — “Full platform”: same UI/tools; ingest + retrieve + generate all on OpenShift AI; show LSD + InferenceService in console.
 
 Success line: *We did not rewrite the agent — we moved AI dependencies onto OpenShift AI.*
 
@@ -192,7 +195,7 @@ Success line: *We did not rewrite the agent — we moved AI dependencies onto Op
 - Cold demo: upload → ask → tool trace shows retrieval → delete; all RAG I/O via Stack.
 - Stopping Llama Stack or the InferenceService makes chat/RAG fail (platform dependency proven).
 - Agent code diff from v2 is localized to document/RAG adapters + env (not a new agent framework).
-- Argo `agent-azuresdk-demo-ogx-v3` Synced/Healthy after `images.newTag` release.
+- Argo `agent-azuresdk-demo-ogx-native` Synced/Healthy after `images.newTag` release.
 
 ---
 
@@ -201,4 +204,3 @@ Success line: *We did not rewrite the agent — we moved AI dependencies onto Op
 1. Prefer Stack **OpenAI-compatible** RAG/helpers vs raw vector-IO REST for ingest?
 2. Keep a thin Postgres only for Stack metadata, or all-inline Milvus?
 3. Is TrustyAI in or out for the first V3 slice?
-4. Namespace: `agent-azuresdk-demo-ogx-v3` (recommended) vs replace v2 in-place?
