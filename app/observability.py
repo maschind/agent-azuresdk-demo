@@ -42,14 +42,42 @@ def list_shields() -> list[dict[str, Any]]:
         return []
 
 
+def _shield_params(sid: str) -> dict[str, Any]:
+    # ODH built-in detector: regex PII via GuardrailsOrchestrator
+    return {
+        "type": "content",
+        "message_types": ["user", "system"],
+        "confidence_threshold": 0.5,
+        "verify_ssl": False,
+        "detectors": {
+            sid: {
+                "regex": {
+                    "email": {},
+                    "us-social-security-number": {},
+                    "credit-card": {},
+                }
+            }
+        },
+    }
+
+
 def ensure_shield(shield_id: str | None = None) -> str | None:
-    """Register TrustyAI FMS shield on Stack if missing (idempotent)."""
+    """Register TrustyAI FMS shield on Stack if missing / misconfigured."""
     sid = (shield_id or TRUSTYAI_SHIELD_ID or "built-in-detector").strip()
     if not sid:
         return None
-    existing = {s.get("identifier") or s.get("id") for s in list_shields()}
-    if sid in existing:
-        return sid
+    for s in list_shields():
+        if (s.get("identifier") or s.get("id")) != sid:
+            continue
+        params = s.get("params") or {}
+        detectors = params.get("detectors") or {}
+        if "email" in ((detectors.get(sid) or {}).get("regex") or {}):
+            return sid
+        try:
+            _stack_json("DELETE", f"/shields/{sid}")
+        except Exception as exc:  # noqa: BLE001
+            log.warning("ensure_shield delete %s: %s", sid, exc)
+        break
     try:
         _stack_json(
             "POST",
@@ -58,13 +86,7 @@ def ensure_shield(shield_id: str | None = None) -> str | None:
                 "shield_id": sid,
                 "provider_id": "trustyai_fms",
                 "provider_shield_id": sid,
-                "params": {
-                    "type": "content",
-                    "message_types": ["user", "system"],
-                    "confidence_threshold": 0.5,
-                    # GuardrailsOrchestrator autoConfig detector id
-                    "detectors": {sid: {"threshold": 0.5}},
-                },
+                "params": _shield_params(sid),
             },
         )
         return sid
@@ -95,10 +117,20 @@ def run_shield(user_text: str, shield_id: str | None = None) -> dict[str, Any]:
                 "messages": [{"role": "user", "content": user_text}],
             },
         )
-        # Normalize: violation if violation present / not PASS
-        violation = result.get("violation") or result.get("violations")
-        blocked = bool(violation)
-        return {"ok": not blocked, "skipped": False, "shield_id": sid, "detail": result}
+        # Stack always wraps a "violation" object; use metadata.status / detections.
+        wrapper = result.get("violation") or {}
+        meta = wrapper.get("metadata") or {}
+        summary = meta.get("summary") or {}
+        status = (meta.get("status") or "").lower()
+        detections = int(summary.get("total_detections") or 0)
+        blocked = status in {"violation", "failed", "fail"} or detections > 0
+        return {
+            "ok": not blocked,
+            "skipped": False,
+            "shield_id": sid,
+            "blocked": blocked,
+            "detail": result,
+        }
     except HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
         return {"ok": True, "skipped": True, "detail": f"shield HTTP {exc.code}: {body}"}
