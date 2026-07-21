@@ -14,6 +14,10 @@ Success line: *v1/v2 keep Azure SDK; v3 is a small OpenShift AI-native rewrite o
 
 ### Compare code (v2 → v3)
 
+Prefer GitHub compare for demos:
+
+https://github.com/maschind/agent-azuresdk-demo/compare/ogx...ogx-native
+
 ```bash
 # App rewrite (Azure/pgvector → Stack-only modules)
 git fetch origin
@@ -26,7 +30,7 @@ git diff origin/ogx..origin/ogx-native -- deploy/overlays/ogx deploy/overlays/og
 git diff --stat origin/ogx..origin/ogx-native -- app/ Dockerfile deploy/
 ```
 
-Narrative delta: [CHANGES.md](CHANGES.md) § v2 → v3.
+Narrative delta: [CHANGES.md](CHANGES.md) § v2 → v3. Spec detail: [SPEC.md](SPEC.md) § Version 3.
 
 ---
 
