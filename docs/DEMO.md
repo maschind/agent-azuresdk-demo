@@ -8,9 +8,9 @@ See [SPEC.md](SPEC.md) for architecture and decisions.
 
 1. **v1** (`main`): Azure SDK on plain OpenShift — chat → LiteMaaS, RAG → app pgvector. **No OpenShift AI.**
 2. **v2** (`ogx`): Same agent + same RAG; **default chat → Llama Stack**. Optional bypass `litemaas` / `vllm`.
-3. **v3** (`ogx-native`): Full OpenShift AI — chat + ingest + retrieve via Stack / KServe; **TrustyAI** guardrails; **MLflow** runs/traces (see SPEC § Version 3 and [CHANGES.md](CHANGES.md)).
+3. **v3** (`ogx-native`): Clean OpenShift AI app — OpenAI client → Stack; Stack RAG / KServe; **TrustyAI**; **MLflow** (see SPEC § Version 3 and [CHANGES.md](CHANGES.md)).
 
-Success line: *We did not rewrite the agent — we moved AI dependencies onto OpenShift AI.*
+Success line: *v1/v2 keep Azure SDK; v3 is a small OpenShift AI-native rewrite of the same chat + RAG UX.*
 
 ---
 

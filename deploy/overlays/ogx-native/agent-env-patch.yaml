@@ -13,20 +13,6 @@ spec:
                 secretKeyRef:
                   name: llm-credentials
                   key: LLM_API_KEY
-            - name: LLM_BASE_URL
-              value: http://llamastack-demo-service:8321/v1
-            - name: LLM_MODEL
-              value: vllm-inference/llama-32-3b-instruct
-            - name: AGENT_BACKEND
-              value: native
-            - name: MODEL_PROVIDER
-              value: llamastack
-            - name: ENABLE_LLAMA_STACK_PROVIDER
-              value: "true"
-            - name: ENABLE_PROVIDER_BYPASS
-              value: "false"
-            - name: RAG_BACKEND
-              value: stack
             - name: LLAMA_STACK_BASE_URL
               value: http://llamastack-demo-service:8321/v1
             - name: LLAMA_STACK_MODEL
@@ -35,7 +21,10 @@ spec:
               value: agent-kb
             - name: STACK_EMBEDDING_MODEL
               value: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
-            # Cluster MLflow (RHOAI): workspace == namespace; SA auth via kubernetes-namespaced plugin
+            - name: TRUSTYAI_SHIELD_ID
+              value: built-in-detector
+            - name: TRUSTYAI_ORCHESTRATOR_URL
+              value: https://guardrails-service.my-first-model.svc:8032
             - name: MLFLOW_TRACKING_URI
               value: https://mlflow.redhat-ods-applications.svc:8443
             - name: MLFLOW_TRACKING_AUTH
@@ -50,8 +39,3 @@ spec:
               value: agent-azuresdk-demo-ogx-native
             - name: MLFLOW_TRACING_ENABLED
               value: "true"
-            # Matches GuardrailsOrchestrator autoConfig detector id (my-first-model)
-            - name: TRUSTYAI_SHIELD_ID
-              value: built-in-detector
-            - name: TRUSTYAI_ORCHESTRATOR_URL
-              value: https://guardrails-service.my-first-model.svc:8032

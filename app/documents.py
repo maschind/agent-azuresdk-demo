@@ -1,50 +1,21 @@
-"""Document text extraction and chunking."""
+"""Upload helpers (type / size checks). Stack stores the raw file."""
 
 from __future__ import annotations
 
-import io
-import re
+from config import MAX_UPLOAD_BYTES
 
-from pypdf import PdfReader
-
-from config import CHUNK_OVERLAP, CHUNK_SIZE, MAX_UPLOAD_BYTES
-
-
-ALLOWED_EXTENSIONS = {".txt", ".md", ".pdf"}
+ALLOWED = {".txt", ".md", ".pdf"}
 
 
 def extension_ok(filename: str) -> bool:
     lower = filename.lower()
-    return any(lower.endswith(ext) for ext in ALLOWED_EXTENSIONS)
+    return any(lower.endswith(ext) for ext in ALLOWED)
 
 
-def extract_text(filename: str, data: bytes) -> str:
+def validate_upload(filename: str, data: bytes) -> None:
+    if not extension_ok(filename):
+        raise ValueError("Unsupported type (use .txt, .md, or .pdf)")
     if len(data) > MAX_UPLOAD_BYTES:
-        raise ValueError(f"File exceeds max size of {MAX_UPLOAD_BYTES} bytes")
-    lower = filename.lower()
-    if lower.endswith(".pdf"):
-        reader = PdfReader(io.BytesIO(data))
-        parts = []
-        for page in reader.pages:
-            parts.append(page.extract_text() or "")
-        text = "\n".join(parts)
-    else:
-        text = data.decode("utf-8", errors="replace")
-    text = re.sub(r"\s+", " ", text).strip()
-    if not text:
-        raise ValueError("No extractable text in document")
-    return text
-
-
-def chunk_text(text: str) -> list[str]:
-    if len(text) <= CHUNK_SIZE:
-        return [text]
-    chunks: list[str] = []
-    start = 0
-    while start < len(text):
-        end = min(start + CHUNK_SIZE, len(text))
-        chunks.append(text[start:end])
-        if end >= len(text):
-            break
-        start = max(0, end - CHUNK_OVERLAP)
-    return chunks
+        raise ValueError(f"File exceeds {MAX_UPLOAD_BYTES} bytes")
+    if not data:
+        raise ValueError("Empty file")

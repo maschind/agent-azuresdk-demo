@@ -4,8 +4,7 @@ USER 0
 WORKDIR /opt/app
 
 COPY app/requirements.txt /opt/app/requirements.txt
-RUN pip install --no-cache-dir -r /opt/app/requirements.txt \
-    && python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BAAI/bge-small-en-v1.5')"
+RUN pip install --no-cache-dir -r /opt/app/requirements.txt
 
 COPY app/ /opt/app/
 
@@ -13,9 +12,7 @@ ENV HOME=/opt/app \
     STREAMLIT_SERVER_PORT=8501 \
     STREAMLIT_SERVER_ADDRESS=0.0.0.0 \
     STREAMLIT_SERVER_HEADLESS=true \
-    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
-    EMBEDDING_MODEL=BAAI/bge-small-en-v1.5 \
-    EMBEDDING_DIMS=384
+    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
 
 EXPOSE 8501
 
