@@ -1,0 +1,8 @@
+streamlit==1.45.1
+azure-ai-inference==1.0.0b9
+azure-core==1.32.0
+psycopg[binary]==3.2.6
+pgvector==0.3.6
+fastembed==0.6.1
+pypdf==5.4.0
+httpx==0.28.1

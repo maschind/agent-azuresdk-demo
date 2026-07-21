@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent
+  namespace: agent-azuresdk-demo-main
+  labels:
+    app: agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent
+  template:
+    metadata:
+      labels:
+        app: agent
+    spec:
+      containers:
+        - name: agent
+          image: agent:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8501
+          env:
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: llm-credentials
+                  key: LLM_API_KEY
+            - name: LLM_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: llm-credentials
+                  key: LLM_BASE_URL
+            - name: LLM_MODEL
+              valueFrom:
+                secretKeyRef:
+                  name: llm-credentials
+                  key: LLM_MODEL
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: DATABASE_URL
+            - name: AGENT_BACKEND
+              value: direct
+            - name: MODEL_PROVIDER
+              value: litemaas
+          readinessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: http
+            initialDelaySeconds: 40
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 200m
+              memory: 1Gi
+            limits:
+              memory: 3Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent
+  namespace: agent-azuresdk-demo-main
+spec:
+  selector:
+    app: agent
+  ports:
+    - name: http
+      port: 8501
+      targetPort: http
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: agent
+  namespace: agent-azuresdk-demo-main
+spec:
+  to:
+    kind: Service
+    name: agent
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

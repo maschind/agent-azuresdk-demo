@@ -1,0 +1,23 @@
+# Example PipelineRun — create with:
+#   oc create -f deploy/tekton/pipelinerun-main.yaml -n agent-azuresdk-demo-main
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: agent-build-main-
+  namespace: agent-azuresdk-demo-main
+spec:
+  pipelineRef:
+    name: agent-build-main
+  params:
+    - name: git-url
+      value: https://github.com/maschind/agent-azuresdk-demo.git
+    - name: git-revision
+      value: main
+    - name: image-tag
+      value: v0.1.0
+  taskRunTemplate:
+    serviceAccountName: pipeline
+  workspaces:
+    - name: shared-workspace
+      persistentVolumeClaim:
+        claimName: agent-build-workspace

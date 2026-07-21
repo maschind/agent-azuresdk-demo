@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agent-build-workspace
+  namespace: agent-azuresdk-demo-main
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: gp3-csi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pipeline
+  namespace: agent-azuresdk-demo-main
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pipeline-privileged
+  namespace: agent-azuresdk-demo-main
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:privileged
+subjects:
+  - kind: ServiceAccount
+    name: pipeline
+    namespace: agent-azuresdk-demo-main
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: agent
+  namespace: agent-azuresdk-demo-main
+---
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: agent-build-main
+  namespace: agent-azuresdk-demo-main
+spec:
+  params:
+    - name: git-url
+      type: string
+      default: https://github.com/maschind/agent-azuresdk-demo.git
+    - name: git-revision
+      type: string
+      default: main
+    - name: image-tag
+      type: string
+      default: v0.1.0
+  workspaces:
+    - name: shared-workspace
+  tasks:
+    - name: fetch-repository
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-clone
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: URL
+          value: $(params.git-url)
+        - name: REVISION
+          value: $(params.git-revision)
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+    - name: build-and-push
+      runAfter:
+        - fetch-repository
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: buildah
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: IMAGE
+          value: image-registry.openshift-image-registry.svc:5000/agent-azuresdk-demo-main/agent:$(params.image-tag)
+        - name: DOCKERFILE
+          value: ./Dockerfile
+        - name: CONTEXT
+          value: .
+      workspaces:
+        - name: source
+          workspace: shared-workspace
