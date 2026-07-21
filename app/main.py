@@ -220,30 +220,32 @@ def main() -> None:
         with st.chat_message("assistant"):
             with st.spinner("Thinking…"):
                 try:
-                    shield = run_shield(prompt)
-                    if not shield.get("ok", True) and not shield.get("skipped"):
-                        answer = (
-                            "**Blocked by TrustyAI / Stack safety shield.**\n\n"
-                            f"```json\n{shield.get('detail')}\n```"
-                        )
-                        st.warning(answer)
-                        st.session_state.obs_notes = [shield]
-                        st.session_state.messages.append(
-                            {"role": "assistant", "content": answer}
-                        )
-                        st.stop()
-
                     history = [
                         {"role": m["role"], "content": m["content"]}
                         for m in st.session_state.messages[:-1]
                     ]
                     with mlflow_chat_run(prompt, config.LLM_MODEL) as mf:
+                        shield = run_shield(prompt)
+                        mf["shield_ok"] = shield.get("ok", True)
+                        if not shield.get("ok", True) and not shield.get("skipped"):
+                            answer = (
+                                "**Blocked by TrustyAI / Stack safety shield.**\n\n"
+                                f"```json\n{shield.get('detail')}\n```"
+                            )
+                            mf["answer"] = answer
+                            mf["tool_calls"] = 0
+                            st.warning(answer)
+                            st.session_state.obs_notes = [shield, {"mlflow": mf}]
+                            st.session_state.messages.append(
+                                {"role": "assistant", "content": answer}
+                            )
+                            st.stop()
+
                         result = run_agent(prompt, history=history)
                         answer = result["answer"]
                         traces = result.get("tool_traces") or []
                         mf["answer"] = answer
                         mf["tool_calls"] = len(traces)
-                        mf["shield_ok"] = shield.get("ok", True)
                     st.session_state.tool_traces = traces
                     st.session_state.obs_notes = [shield, {"mlflow": mf}]
                     st.markdown(answer)

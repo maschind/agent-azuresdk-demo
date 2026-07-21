@@ -16,6 +16,7 @@ from azure.ai.inference.models import (
 from azure.core.credentials import AzureKeyCredential
 
 import config
+from observability import mlflow_span
 from tools.rag import TOOL_DEFINITION, run_tool
 
 SYSTEM_PROMPT = (
@@ -102,7 +103,27 @@ def _complete(client: ChatCompletionsClient, messages: list[Any], *, with_tools:
     }
     if with_tools:
         kwargs["tools"] = _tools()
-    return client.complete(**kwargs)
+    with mlflow_span(
+        "llm.complete",
+        span_type="CHAT_MODEL",
+        inputs={
+            "model": config.LLM_MODEL,
+            "with_tools": with_tools,
+            "message_count": len(messages),
+        },
+    ) as span:
+        response = client.complete(**kwargs)
+        if span is not None:
+            choice = response.choices[0]
+            message = choice.message
+            tool_calls = getattr(message, "tool_calls", None) or []
+            span.set_outputs(
+                {
+                    "content_chars": len(_message_content(message)),
+                    "tool_call_count": len(tool_calls),
+                }
+            )
+        return response
 
 
 def run_agent(user_text: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
@@ -113,6 +134,25 @@ def run_agent(user_text: str, history: list[dict[str, str]] | None = None) -> di
     if not config.LLM_BASE_URL or not config.LLM_MODEL:
         raise RuntimeError("LLM_BASE_URL and LLM_MODEL must be set (Secret llm-credentials)")
 
+    with mlflow_span(
+        "run_agent",
+        span_type="AGENT",
+        inputs={"user_chars": len(user_text), "history_len": len(history or [])},
+    ) as agent_span:
+        result = _run_agent_impl(user_text, history)
+        if agent_span is not None:
+            agent_span.set_outputs(
+                {
+                    "answer_chars": len(result.get("answer") or ""),
+                    "tool_calls": len(result.get("tool_traces") or []),
+                }
+            )
+        return result
+
+
+def _run_agent_impl(
+    user_text: str, history: list[dict[str, str]] | None = None
+) -> dict[str, Any]:
     client = _client()
     messages: list[Any] = [SystemMessage(content=SYSTEM_PROMPT)]
     for item in history or []:
@@ -139,7 +179,15 @@ def run_agent(user_text: str, history: list[dict[str, str]] | None = None) -> di
                 fn = call.function
                 name = fn.name
                 args = fn.arguments or "{}"
-                result = run_tool(name, args)
+                span_type = "RETRIEVER" if name == "search_knowledge_base" else "TOOL"
+                with mlflow_span(
+                    name,
+                    span_type=span_type,
+                    inputs={"arguments": args[:1000]},
+                ) as tool_span:
+                    result = run_tool(name, args)
+                    if tool_span is not None:
+                        tool_span.set_outputs({"result_chars": len(result or "")})
                 tool_traces.append(
                     {
                         "tool": name,

@@ -1,11 +1,11 @@
-"""TrustyAI safety + MLflow tracing helpers for v3."""
+"""TrustyAI safety + MLflow run/trace helpers for v3."""
 
 from __future__ import annotations
 
 import json
 import logging
 import ssl
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from typing import Any, Iterator
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 from config import (
     LLAMA_STACK_BASE_URL,
     MLFLOW_EXPERIMENT,
+    MLFLOW_TRACING_ENABLED,
     MLFLOW_TRACKING_URI,
     TRUSTYAI_ORCHESTRATOR_URL,
     TRUSTYAI_SHIELD_ID,
@@ -26,6 +27,51 @@ _PII_REGEX = {
     "us-social-security-number": {},
     "credit-card": {},
 }
+_mlflow_configured = False
+
+
+def tracing_enabled() -> bool:
+    return bool(MLFLOW_TRACING_ENABLED and MLFLOW_TRACKING_URI)
+
+
+def configure_mlflow() -> bool:
+    """Set tracking URI + experiment once. Returns True if ready."""
+    global _mlflow_configured
+    if not MLFLOW_TRACKING_URI:
+        return False
+    try:
+        import mlflow
+
+        if not _mlflow_configured:
+            mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+            mlflow.set_experiment(MLFLOW_EXPERIMENT)
+            _mlflow_configured = True
+        return True
+    except Exception as exc:  # noqa: BLE001
+        log.warning("MLflow configure failed: %s", exc)
+        return False
+
+
+@contextmanager
+def mlflow_span(
+    name: str,
+    span_type: str = "UNKNOWN",
+    inputs: dict[str, Any] | None = None,
+) -> Iterator[Any]:
+    """Create an MLflow span when tracing is on; otherwise a no-op context."""
+    if not (tracing_enabled() and configure_mlflow()):
+        yield None
+        return
+    try:
+        import mlflow
+
+        with mlflow.start_span(name=name, span_type=span_type) as span:
+            if inputs is not None and span is not None:
+                span.set_inputs(inputs)
+            yield span
+    except Exception as exc:  # noqa: BLE001
+        log.warning("MLflow span %s failed: %s", name, exc)
+        yield None
 
 
 def _stack_json(method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
@@ -131,7 +177,25 @@ def _run_shield_via_orchestrator(user_text: str, detector_id: str) -> dict[str, 
 def run_shield(user_text: str, shield_id: str | None = None) -> dict[str, Any]:
     """Run TrustyAI safety check. Prefer direct GO (reliable PII regex); Stack as fallback."""
     sid = (shield_id or TRUSTYAI_SHIELD_ID or _DEFAULT_DETECTOR).strip()
+    with mlflow_span(
+        "trustyai-shield",
+        span_type="TOOL",
+        inputs={"shield_id": sid, "chars": len(user_text)},
+    ) as span:
+        out = _run_shield_impl(user_text, sid)
+        if span is not None:
+            span.set_outputs(
+                {
+                    "ok": out.get("ok"),
+                    "blocked": out.get("blocked"),
+                    "skipped": out.get("skipped"),
+                    "via": out.get("via"),
+                }
+            )
+        return out
 
+
+def _run_shield_impl(user_text: str, sid: str) -> dict[str, Any]:
     direct = _run_shield_via_orchestrator(user_text, sid)
     if direct is not None:
         return direct
@@ -176,25 +240,76 @@ def run_shield(user_text: str, shield_id: str | None = None) -> dict[str, Any]:
         return {"ok": True, "skipped": True, "detail": str(exc)}
 
 
+def _active_trace_id() -> str | None:
+    try:
+        import mlflow
+
+        # MLflow 2.22 uses request_id on TraceInfo
+        get_id = getattr(mlflow, "get_last_active_trace_id", None)
+        if callable(get_id):
+            tid = get_id()
+            if tid:
+                return str(tid)
+        last = getattr(mlflow, "get_last_active_trace", None)
+        if callable(last):
+            tr = last()
+            if tr is not None:
+                info = getattr(tr, "info", tr)
+                return str(
+                    getattr(info, "request_id", None)
+                    or getattr(info, "trace_id", None)
+                    or ""
+                ) or None
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
 @contextmanager
 def mlflow_chat_run(prompt: str, model: str) -> Iterator[dict[str, Any]]:
-    """Context manager that logs a chat turn to MLflow when tracking URI is set."""
-    meta: dict[str, Any] = {"enabled": False}
-    if not MLFLOW_TRACKING_URI:
+    """Log a chat turn as an MLflow run and (when enabled) a GenAI root span/trace."""
+    meta: dict[str, Any] = {"enabled": False, "tracing": False}
+    if not MLFLOW_TRACKING_URI or not configure_mlflow():
         yield meta
         return
     try:
         import mlflow
+        from mlflow.entities import SpanType
 
-        mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-        mlflow.set_experiment(MLFLOW_EXPERIMENT)
         with mlflow.start_run(run_name="agent-chat") as run:
             meta["enabled"] = True
             meta["run_id"] = run.info.run_id
             mlflow.log_param("model", model)
             mlflow.log_param("prompt_chars", len(prompt))
+            mlflow.log_param("tracing", tracing_enabled())
             mlflow.log_text(prompt[:4000], "prompt.txt")
-            yield meta
+
+            root_cm = (
+                mlflow.start_span(
+                    name="agent-chat",
+                    span_type=SpanType.AGENT,
+                )
+                if tracing_enabled()
+                else nullcontext(None)
+            )
+            with root_cm as root:
+                meta["tracing"] = tracing_enabled() and root is not None
+                if root is not None:
+                    root.set_inputs({"prompt": prompt[:2000], "model": model})
+                yield meta
+                if root is not None:
+                    root.set_outputs(
+                        {
+                            "answer": str(meta.get("answer", ""))[:2000],
+                            "tool_calls": meta.get("tool_calls"),
+                            "shield_ok": meta.get("shield_ok"),
+                        }
+                    )
+                tid = _active_trace_id()
+                if tid:
+                    meta["trace_id"] = tid
+                    mlflow.log_param("trace_id", tid)
+
             if "answer" in meta:
                 mlflow.log_text(str(meta["answer"])[:8000], "answer.txt")
                 mlflow.log_metric("answer_chars", len(str(meta["answer"])))

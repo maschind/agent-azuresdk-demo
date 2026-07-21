@@ -42,6 +42,8 @@ spec:
               value: https://rh-ai.apps.ocp.9jkcd.sandbox3005.opentlc.com/mlflow
             - name: MLFLOW_EXPERIMENT
               value: agent-azuresdk-demo-ogx-native
+            - name: MLFLOW_TRACING_ENABLED
+              value: "true"
             # Matches GuardrailsOrchestrator autoConfig detector id (my-first-model)
             - name: TRUSTYAI_SHIELD_ID
               value: built-in-detector
