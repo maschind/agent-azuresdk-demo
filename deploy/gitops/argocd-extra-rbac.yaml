@@ -1,0 +1,42 @@
+# Extra RBAC beyond namespace admin: cluster-scoped MLflow + TrustyAI CRs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openshift-gitops-mlflow-edit
+  labels:
+    app.kubernetes.io/part-of: agent-azuresdk-demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mlflow-operator-mlflow-edit
+subjects:
+  - kind: ServiceAccount
+    name: openshift-gitops-argocd-application-controller
+    namespace: openshift-gitops
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: openshift-gitops-trustyai-crds
+  labels:
+    app.kubernetes.io/part-of: agent-azuresdk-demo
+rules:
+  - apiGroups: ["trustyai.opendatahub.io"]
+    resources: ["guardrailsorchestrators", "evalhubs", "lmevaljobs", "nemoguardrails", "trustyaiservices"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: openshift-gitops-trustyai
+  namespace: agent-azuresdk-demo-ogx-native
+  labels:
+    app.kubernetes.io/part-of: agent-azuresdk-demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: openshift-gitops-trustyai-crds
+subjects:
+  - kind: ServiceAccount
+    name: openshift-gitops-argocd-application-controller
+    namespace: openshift-gitops

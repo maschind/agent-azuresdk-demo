@@ -36,7 +36,6 @@ spec:
             - name: STACK_EMBEDDING_MODEL
               value: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
             - name: MLFLOW_TRACKING_URI
-              # Operator typically exposes Service named after the MLflow CR.
               value: http://mlflow:5000
             - name: MLFLOW_EXPERIMENT
               value: agent-azuresdk-demo-ogx-native
