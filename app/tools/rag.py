@@ -1,14 +1,11 @@
-"""RAG tool: search_knowledge_base over pgvector."""
+"""RAG tool: search_knowledge_base (pgvector or Llama Stack vector store)."""
 
 from __future__ import annotations
 
 import json
 from typing import Any
 
-from config import RAG_TOP_K
-from db import similarity_search
-from embeddings import embed_query
-
+from config import RAG_BACKEND, RAG_TOP_K
 
 TOOL_NAME = "search_knowledge_base"
 
@@ -36,20 +33,29 @@ TOOL_DEFINITION = {
 
 def search_knowledge_base(query: str, top_k: int | None = None) -> str:
     k = top_k or RAG_TOP_K
-    embedding = embed_query(query)
-    hits = similarity_search(embedding, k)
+    if RAG_BACKEND == "stack":
+        from stack_kb import search
+
+        hits = search(query, k)
+    else:
+        from db import similarity_search
+        from embeddings import embed_query
+
+        embedding = embed_query(query)
+        hits = similarity_search(embedding, k)
+
     if not hits:
         return json.dumps({"results": [], "message": "No documents in the knowledge base."})
     payload: list[dict[str, Any]] = [
         {
             "filename": h["filename"],
-            "chunk_index": h["chunk_index"],
-            "score": round(h["score"], 4),
+            "chunk_index": h.get("chunk_index", 0),
+            "score": round(float(h["score"]), 4),
             "content": h["content"],
         }
         for h in hits
     ]
-    return json.dumps({"results": payload})
+    return json.dumps({"results": payload, "backend": RAG_BACKEND})
 
 
 def run_tool(name: str, arguments_json: str) -> str:

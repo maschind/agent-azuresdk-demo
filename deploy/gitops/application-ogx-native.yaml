@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: agent-azuresdk-demo-ogx
+  name: agent-azuresdk-demo-ogx-native
   namespace: openshift-gitops
   labels:
     app.kubernetes.io/part-of: agent-azuresdk-demo
@@ -11,11 +11,11 @@ spec:
   project: default
   source:
     repoURL: https://github.com/maschind/agent-azuresdk-demo.git
-    targetRevision: ogx
-    path: deploy/overlays/ogx
+    targetRevision: ogx-native
+    path: deploy/overlays/ogx-native
   destination:
     server: https://kubernetes.default.svc
-    namespace: agent-azuresdk-demo-ogx
+    namespace: agent-azuresdk-demo-ogx-native
   syncPolicy:
     automated:
       prune: true
@@ -37,3 +37,14 @@ spec:
       jsonPointers:
         - /status
         - /metadata/annotations
+    - group: mlflow.opendatahub.io
+      kind: MLflow
+      jsonPointers:
+        - /status
+        - /metadata/annotations
+    - group: trustyai.opendatahub.io
+      kind: GuardrailsOrchestrator
+      jsonPointers:
+        - /status
+        - /metadata/annotations
+        - /spec/orchestratorConfig

@@ -7,11 +7,16 @@ BRANCH="${BRANCH:-main}"
 case "${BRANCH}" in
   main) DEFAULT_NS="agent-azuresdk-demo-main" ;;
   ogx) DEFAULT_NS="agent-azuresdk-demo-ogx" ;;
+  ogx-native) DEFAULT_NS="agent-azuresdk-demo-ogx-native" ;;
   *) DEFAULT_NS="agent-azuresdk-demo-main" ;;
 esac
 
 NAMESPACE="${NAMESPACE:-${DEFAULT_NS}}"
 SECRET_NAME="${SECRET_NAME:-llm-credentials}"
+
+# v3 default: Stack upstream = in-cluster KServe vLLM
+KSERVE_VLLM_URL="${KSERVE_VLLM_URL:-http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1}"
+KSERVE_VLLM_MODEL="${KSERVE_VLLM_MODEL:-llama-32-3b-instruct}"
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -21,7 +26,6 @@ need() {
 }
 
 prompt() {
-  # prompt "Label" "default" -> sets REPLY
   local label="$1"
   local default="${2:-}"
   if [[ -n "${default}" ]]; then
@@ -34,7 +38,6 @@ prompt() {
 
 prompt_secret() {
   local label="$1"
-  # -s hides input (bash on Linux/macOS)
   read -r -s -p "${label}: " REPLY || true
   echo ""
 }
@@ -81,18 +84,25 @@ oc -n "${NAMESPACE}" create secret generic "${SECRET_NAME}" \
   --from-literal=LLM_MODEL="${LLM_MODEL}" \
   --dry-run=client -o yaml | oc apply -f -
 
-# Optional: Llama Stack inference secret on ogx
-if [[ "${NAMESPACE}" == *"-ogx" ]] || [[ "${BRANCH}" == "ogx" ]]; then
+# Llama Stack inference secret on ogx / ogx-native
+if [[ "${NAMESPACE}" == *"-ogx"* ]] || [[ "${BRANCH}" == "ogx" ]] || [[ "${BRANCH}" == "ogx-native" ]]; then
   echo ""
   read -r -p "Also create llama-stack-inference Secret? [Y/n]: " CREATE_LSD || true
   CREATE_LSD="${CREATE_LSD:-Y}"
   if [[ "${CREATE_LSD}" =~ ^[Yy]$ ]]; then
-    prompt "Inference model for Llama Stack" "${LLM_MODEL}"
+    if [[ "${BRANCH}" == "ogx-native" ]] || [[ "${NAMESPACE}" == *"-ogx-native" ]]; then
+      DEF_MODEL="${KSERVE_VLLM_MODEL}"
+      DEF_URL="${KSERVE_VLLM_URL}"
+    else
+      DEF_MODEL="${LLM_MODEL}"
+      DEF_URL="${LLM_BASE_URL}"
+    fi
+    prompt "Inference model for Llama Stack" "${DEF_MODEL}"
     INFERENCE_MODEL="${REPLY}"
-    prompt "Inference provider URL (VLLM_URL / OpenAI-compat)" "${LLM_BASE_URL}"
+    prompt "Inference provider URL (VLLM_URL / OpenAI-compat)" "${DEF_URL}"
     VLLM_URL="${REPLY}"
-    prompt_secret "Inference API token (input hidden; same as LLM key is OK)"
-    VLLM_API_TOKEN="${REPLY:-${LLM_API_KEY}}"
+    prompt_secret "Inference API token (input hidden; EMPTY ok for in-cluster vLLM)"
+    VLLM_API_TOKEN="${REPLY:-EMPTY}"
     oc -n "${NAMESPACE}" create secret generic llama-stack-inference \
       --from-literal=INFERENCE_MODEL="${INFERENCE_MODEL}" \
       --from-literal=VLLM_URL="${VLLM_URL}" \
@@ -104,7 +114,6 @@ if [[ "${NAMESPACE}" == *"-ogx" ]] || [[ "${BRANCH}" == "ogx" ]]; then
   fi
 fi
 
-# Clear sensitive vars
 unset LLM_API_KEY VLLM_API_TOKEN REPLY
 
 echo ""

@@ -1,13 +1,13 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: agent-azuresdk-demo-ogx
+namespace: agent-azuresdk-demo-ogx-native
 resources:
   - ../../base
 # App release knob — change ONLY newTag after Tekton builds a new image
 images:
   - name: agent
-    newName: image-registry.openshift-image-registry.svc:5000/agent-azuresdk-demo-ogx/agent
-    newTag: v0.2.0
+    newName: image-registry.openshift-image-registry.svc:5000/agent-azuresdk-demo-ogx-native/agent
+    newTag: v0.1.0
 patches:
   - path: agent-env-patch.yaml
     target:

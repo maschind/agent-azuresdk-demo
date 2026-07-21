@@ -1,7 +1,20 @@
-# One-time / bootstrap RBAC so OpenShift GitOps can manage this namespace.
-# Apply with: oc apply -f deploy/gitops/argocd-namespace-rbac.yaml
-# (Also applied by scripts/bootstrap.sh.) Not part of the Application sync tree —
-# Argo cannot grant itself these rights on first sync.
+# One-time / bootstrap RBAC so OpenShift GitOps can manage demo namespaces.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: openshift-gitops-admin
+  namespace: agent-azuresdk-demo-main
+  labels:
+    app.kubernetes.io/part-of: agent-azuresdk-demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: admin
+subjects:
+  - kind: ServiceAccount
+    name: openshift-gitops-argocd-application-controller
+    namespace: openshift-gitops
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -22,7 +35,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: openshift-gitops-admin
-  namespace: agent-azuresdk-demo-main
+  namespace: agent-azuresdk-demo-ogx-native
   labels:
     app.kubernetes.io/part-of: agent-azuresdk-demo
 roleRef:

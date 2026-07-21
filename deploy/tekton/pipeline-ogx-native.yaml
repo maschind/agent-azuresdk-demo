@@ -2,7 +2,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: agent-build-workspace
-  namespace: agent-azuresdk-demo-ogx
+  namespace: agent-azuresdk-demo-ogx-native
 spec:
   accessModes:
     - ReadWriteOnce
@@ -15,13 +15,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: pipeline
-  namespace: agent-azuresdk-demo-ogx
+  namespace: agent-azuresdk-demo-ogx-native
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: pipeline-privileged
-  namespace: agent-azuresdk-demo-ogx
+  namespace: agent-azuresdk-demo-ogx-native
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -29,19 +29,19 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: pipeline
-    namespace: agent-azuresdk-demo-ogx
+    namespace: agent-azuresdk-demo-ogx-native
 ---
 apiVersion: image.openshift.io/v1
 kind: ImageStream
 metadata:
   name: agent
-  namespace: agent-azuresdk-demo-ogx
+  namespace: agent-azuresdk-demo-ogx-native
 ---
 apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
-  name: agent-build-ogx
-  namespace: agent-azuresdk-demo-ogx
+  name: agent-build-ogx-native
+  namespace: agent-azuresdk-demo-ogx-native
 spec:
   params:
     - name: git-url
@@ -49,7 +49,7 @@ spec:
       default: https://github.com/maschind/agent-azuresdk-demo.git
     - name: git-revision
       type: string
-      default: ogx
+      default: ogx-native
     - name: image-tag
       type: string
       default: v0.1.0
@@ -88,7 +88,7 @@ spec:
             value: openshift-pipelines
       params:
         - name: IMAGE
-          value: image-registry.openshift-image-registry.svc:5000/agent-azuresdk-demo-ogx/agent:$(params.image-tag)
+          value: image-registry.openshift-image-registry.svc:5000/agent-azuresdk-demo-ogx-native/agent:$(params.image-tag)
         - name: DOCKERFILE
           value: ./Dockerfile
         - name: CONTEXT

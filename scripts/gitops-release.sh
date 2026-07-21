@@ -8,9 +8,9 @@ BRANCH="${BRANCH:-$(git -C "${ROOT}" rev-parse --abbrev-ref HEAD)}"
 TAG="${1:-}"
 
 case "${BRANCH}" in
-  main|ogx) ;;
+  main|ogx|ogx-native) ;;
   *)
-    echo "BRANCH must be main or ogx (got: ${BRANCH})" >&2
+    echo "BRANCH must be main, ogx, or ogx-native (got: ${BRANCH})" >&2
     exit 1
     ;;
 esac

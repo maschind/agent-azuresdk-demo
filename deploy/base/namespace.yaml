@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: agent-azuresdk-demo-ogx
+  name: agent-azuresdk-demo-ogx-native
   labels:
     app.kubernetes.io/part-of: agent-azuresdk-demo
     app.kubernetes.io/version: v2

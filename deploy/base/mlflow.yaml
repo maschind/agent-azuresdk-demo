@@ -1,0 +1,17 @@
+apiVersion: mlflow.opendatahub.io/v1
+kind: MLflow
+metadata:
+  name: mlflow
+  namespace: agent-azuresdk-demo-ogx-native
+spec:
+  replicas: 1
+  serveArtifacts: true
+  backendStoreUri: sqlite:////mlflow/mlflow.db
+  artifactsDestination: file:///mlflow/artifacts
+  storage:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 10Gi
+    storageClassName: gp3-csi

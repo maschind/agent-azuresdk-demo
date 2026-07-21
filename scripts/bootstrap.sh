@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bootstrap agent-azuresdk-demo for BRANCH=main|ogx (Linux / macOS).
+# Bootstrap agent-azuresdk-demo for BRANCH=main|ogx|ogx-native (Linux / macOS).
 # App workload is managed only by OpenShift GitOps (Argo CD) after bootstrap.
 # Bootstrap may: create NS, out-of-band Secrets, Tekton, Argo RBAC + Application.
 set -euo pipefail
@@ -20,8 +20,14 @@ case "${BRANCH}" in
     PIPELINE_FILE="${ROOT}/deploy/tekton/pipeline-ogx.yaml"
     APP_FILE="${ROOT}/deploy/gitops/application-ogx.yaml"
     ;;
+  ogx-native)
+    NS="agent-azuresdk-demo-ogx-native"
+    OVERLAY="${ROOT}/deploy/overlays/ogx-native"
+    PIPELINE_FILE="${ROOT}/deploy/tekton/pipeline-ogx-native.yaml"
+    APP_FILE="${ROOT}/deploy/gitops/application-ogx-native.yaml"
+    ;;
   *)
-    echo "BRANCH must be main or ogx (got: ${BRANCH})" >&2
+    echo "BRANCH must be main, ogx, or ogx-native (got: ${BRANCH})" >&2
     exit 1
     ;;
 esac

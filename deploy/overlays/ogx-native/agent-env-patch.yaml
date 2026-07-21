@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent
+spec:
+  template:
+    spec:
+      containers:
+        - name: agent
+          env:
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: llm-credentials
+                  key: LLM_API_KEY
+            - name: LLM_BASE_URL
+              value: http://llamastack-demo-service:8321/v1
+            - name: LLM_MODEL
+              value: vllm-inference/llama-32-3b-instruct
+            - name: AGENT_BACKEND
+              value: native
+            - name: MODEL_PROVIDER
+              value: llamastack
+            - name: ENABLE_LLAMA_STACK_PROVIDER
+              value: "true"
+            - name: ENABLE_PROVIDER_BYPASS
+              value: "false"
+            - name: RAG_BACKEND
+              value: stack
+            - name: LLAMA_STACK_BASE_URL
+              value: http://llamastack-demo-service:8321/v1
+            - name: LLAMA_STACK_MODEL
+              value: vllm-inference/llama-32-3b-instruct
+            - name: STACK_VECTOR_STORE_NAME
+              value: agent-kb
+            - name: STACK_EMBEDDING_MODEL
+              value: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
+            - name: MLFLOW_TRACKING_URI
+              # Operator typically exposes Service named after the MLflow CR.
+              value: http://mlflow:5000
+            - name: MLFLOW_EXPERIMENT
+              value: agent-azuresdk-demo-ogx-native
+            - name: TRUSTYAI_SHIELD_ID
+              value: ""

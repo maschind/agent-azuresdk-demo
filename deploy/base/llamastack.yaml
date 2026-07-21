@@ -4,7 +4,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: postgres-lsd-credentials
-  namespace: agent-azuresdk-demo-ogx
+  namespace: agent-azuresdk-demo-ogx-native
 type: Opaque
 stringData:
   password: rag
@@ -13,7 +13,7 @@ apiVersion: llamastack.io/v1alpha1
 kind: LlamaStackDistribution
 metadata:
   name: llamastack-demo
-  namespace: agent-azuresdk-demo-ogx
+  namespace: agent-azuresdk-demo-ogx-native
 spec:
   replicas: 1
   server:
