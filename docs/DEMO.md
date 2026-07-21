@@ -12,6 +12,22 @@ See [SPEC.md](SPEC.md) for architecture and decisions.
 
 Success line: *v1/v2 keep Azure SDK; v3 is a small OpenShift AI-native rewrite of the same chat + RAG UX.*
 
+### Compare code (v2 → v3)
+
+```bash
+# App rewrite (Azure/pgvector → Stack-only modules)
+git fetch origin
+git diff origin/ogx..origin/ogx-native -- app/ Dockerfile
+
+# Manifests / env for the native path
+git diff origin/ogx..origin/ogx-native -- deploy/overlays/ogx deploy/overlays/ogx-native deploy/base
+
+# Name-status overview
+git diff --stat origin/ogx..origin/ogx-native -- app/ Dockerfile deploy/
+```
+
+Narrative delta: [CHANGES.md](CHANGES.md) § v2 → v3.
+
 ---
 
 ## Version matrix
