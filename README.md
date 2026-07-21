@@ -8,9 +8,7 @@ POC: Azure AI Inference SDK agents on OpenShift → OpenShift AI (Llama Stack / 
 | v2 | `ogx` | `agent-azuresdk-demo-ogx` | Bridge: Stack chat, app-pgvector RAG |
 | v3 | `ogx-native` | `agent-azuresdk-demo-ogx-native` | Full OpenShift AI (Stack RAG + KServe + TrustyAI + MLflow) |
 
-**Docs (identical on all three branches):** [docs/SPEC.md](docs/SPEC.md) · [docs/DEMO.md](docs/DEMO.md)
-
-This checkout is branch **`ogx-native`** (v3).
+**Docs (identical on all three branches):** [docs/SPEC.md](docs/SPEC.md) · [docs/DEMO.md](docs/DEMO.md) · [docs/CHANGES.md](docs/CHANGES.md)
 
 ## GitOps rules
 
