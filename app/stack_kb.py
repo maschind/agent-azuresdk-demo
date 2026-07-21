@@ -39,11 +39,17 @@ def _json(method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
         raise RuntimeError(f"Stack {method} {path} failed ({exc.code}): {body}") from exc
 
 
-def ensure_vector_store() -> str:
+def ensure_vector_store(*, recreate: bool = False) -> str:
     """Return vector store id (create once; id cached via list-by-name)."""
     listing = _json("GET", "/vector_stores")
     for item in listing.get("data") or []:
         if item.get("name") == STACK_VECTOR_STORE_NAME:
+            if recreate:
+                try:
+                    _json("DELETE", f"/vector_stores/{item['id']}")
+                except Exception:  # noqa: BLE001
+                    pass
+                break
             return item["id"]
     created = _json(
         "POST",
@@ -106,8 +112,14 @@ def wait_file_ready(vector_store_id: str, file_id: str, timeout_s: float = 120) 
 def ingest_document(filename: str, data: bytes, content_type: str | None = None) -> dict[str, str]:
     vs_id = ensure_vector_store()
     file_id = upload_file(filename, data, content_type)
-    attach_file(vs_id, file_id)
-    wait_file_ready(vs_id, file_id)
+    try:
+        attach_file(vs_id, file_id)
+        wait_file_ready(vs_id, file_id)
+    except Exception:  # noqa: BLE001
+        # After Stack/Milvus restart, stale vector store ids can linger in the API list.
+        vs_id = ensure_vector_store(recreate=True)
+        attach_file(vs_id, file_id)
+        wait_file_ready(vs_id, file_id)
     return {"vector_store_id": vs_id, "file_id": file_id, "filename": filename}
 
 
