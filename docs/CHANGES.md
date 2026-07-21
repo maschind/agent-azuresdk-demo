@@ -62,6 +62,8 @@ flowchart TB
 
 **Intent:** Drop Azure / pgvector / provider bypass. v3 is a **small OpenShift AI app**: OpenAI client → Stack, Stack RAG, TrustyAI, MLflow.
 
+**Code diff (GitHub):** https://github.com/maschind/agent-azuresdk-demo/compare/ogx...ogx-native
+
 ### Architecture
 
 ```mermaid
