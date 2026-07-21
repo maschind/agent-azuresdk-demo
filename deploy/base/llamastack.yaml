@@ -47,8 +47,8 @@ spec:
           value: sentence-transformers
         - name: ENABLE_INLINE_MILVUS
           value: "true"
-        # TrustyAI Guardrails Orchestrator (deployed beside sample ISVC in my-first-model)
-        - name: TRUSTYAI_FMS_ORCHESTRATOR_URL
+        # rh-dev config.yaml maps this into trustyai_fms.orchestrator_url
+        - name: FMS_ORCHESTRATOR_URL
           value: http://guardrails-service.my-first-model.svc:8032
         - name: INFERENCE_MODEL
           valueFrom:

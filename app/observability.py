@@ -42,9 +42,35 @@ def list_shields() -> list[dict[str, Any]]:
         return []
 
 
+def ensure_shield(shield_id: str | None = None) -> str | None:
+    """Register TrustyAI FMS shield on Stack if missing (idempotent)."""
+    sid = (shield_id or TRUSTYAI_SHIELD_ID or "built-in-detector").strip()
+    if not sid:
+        return None
+    existing = {s.get("identifier") or s.get("id") for s in list_shields()}
+    if sid in existing:
+        return sid
+    try:
+        _stack_json(
+            "POST",
+            "/shields",
+            {
+                "shield_id": sid,
+                "provider_id": "trustyai_fms",
+                "provider_shield_id": sid,
+                "params": {"detector_id": sid},
+            },
+        )
+        return sid
+    except Exception as exc:  # noqa: BLE001
+        log.warning("ensure_shield(%s) failed: %s", sid, exc)
+        return None
+
+
 def run_shield(user_text: str, shield_id: str | None = None) -> dict[str, Any]:
     """Run TrustyAI/Stack safety shield if configured. Returns {ok, detail}."""
     sid = shield_id or TRUSTYAI_SHIELD_ID
+    ensure_shield(sid)
     shields = list_shields()
     if not sid and shields:
         sid = shields[0].get("identifier") or shields[0].get("id")

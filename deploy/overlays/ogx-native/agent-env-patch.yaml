@@ -42,7 +42,8 @@ spec:
               value: https://rh-ai.apps.ocp.9jkcd.sandbox3005.opentlc.com/mlflow
             - name: MLFLOW_EXPERIMENT
               value: agent-azuresdk-demo-ogx-native
+            # Matches GuardrailsOrchestrator autoConfig detector id (my-first-model)
             - name: TRUSTYAI_SHIELD_ID
-              value: ""
+              value: built-in-detector
             - name: TRUSTYAI_ORCHESTRATOR_URL
               value: http://guardrails-service.my-first-model.svc:8032
