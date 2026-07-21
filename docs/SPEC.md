@@ -2,7 +2,7 @@
 
 Single source of truth for **v1**, **v2**, and **v3**. Keep this file identical on branches `main`, `ogx`, and `ogx-native`.
 
-Extensible POC: Azure AI Python client + LiteMaaS / Llama Stack, RAG, Streamlit UI, Tekton + OpenShift GitOps.
+Extensible POC: Azure SDK agents (v1/v2) → OpenShift AI-native Stack app (v3); Streamlit UI; Tekton + OpenShift GitOps.
 
 ## Versioning
 
@@ -10,7 +10,7 @@ Extensible POC: Azure AI Python client + LiteMaaS / Llama Stack, RAG, Streamlit 
 |---------|------------|-----------|--------|
 | **v1** | `main` | `agent-azuresdk-demo-main` | Plain OpenShift; Azure SDK → LiteMaaS; RAG → **app** pgvector + local embeddings. **No OpenShift AI.** |
 | **v2** | `ogx` | `agent-azuresdk-demo-ogx` | **Bridge:** same agent + **same app-pgvector RAG**; **default chat** via Llama Stack `/v1`. Optional bypass to LiteMaaS / vLLM. |
-| **v3** | `ogx-native` | `agent-azuresdk-demo-ogx-native` | **OpenShift AI only:** clean OpenAI client → Stack; Stack RAG + KServe; **TrustyAI** + **MLflow**. No Azure SDK. |
+| **v3** | `ogx-native` | `agent-azuresdk-demo-ogx-native` | **OpenShift AI core:** OpenAI client → Stack; Stack RAG + KServe. **Add-ons vs v2:** TrustyAI + MLflow. No Azure SDK. |
 
 Branches and namespaces stay separate so demos can run side-by-side.
 
@@ -18,9 +18,9 @@ Branches and namespaces stay separate so demos can run side-by-side.
 
 1. **Today (v1):** Build agents with Azure SDK, containerize, deploy on OpenShift — no OpenShift AI.
 2. **First step (v2):** Keep the Azure agent and DIY RAG; point chat at Llama Stack (config-only) to land on OpenShift AI.
-3. **Platform (v3):** Drop Azure / app-pgvector; ship a small OpenShift AI-native app (OpenAI client → Stack `/v1`) with Stack RAG, TrustyAI, and MLflow.
+3. **Platform (v3):** Drop Azure / app-pgvector; ship a small OpenShift AI-native app (OpenAI client → Stack `/v1`) with Stack RAG + KServe. **Then layer add-ons vs v2:** **TrustyAI** (PII shield) and **MLflow** (runs/traces).
 
-Takeaway: *v1/v2 keep Azure SDK; v3 is a clean OpenShift AI rewrite of the same UX (chat + `search_knowledge_base`).*
+Takeaway: *v1/v2 keep Azure SDK; v3 rewrites the same UX onto OpenShift AI (chat + `search_knowledge_base`), then adds TrustyAI and MLflow.*
 
 ## Decisions
 
@@ -34,9 +34,9 @@ Takeaway: *v1/v2 keep Azure SDK; v3 is a clean OpenShift AI rewrite of the same 
 | Chat default (v2) | **Llama Stack** (`MODEL_PROVIDER=llamastack`) |
 | Chat bypass (v2) | Optional UI: `litemaas` \| `vllm` (contrast only; not the story) |
 | Chat (v3) | Stack `/v1` only |
-| Serving (v3) | Stack → **KServe vLLM** (primary); LiteMaaS may be a Stack *provider* |
-| Safety (v3) | **TrustyAI** with Llama Stack (`trustyai_fms` / Guardrails Orchestrator); demo unsafe vs blocked prompt |
-| Observability (v3) | **MLflow** (RHOAI MLflow Operator): experiment runs + tracing for agent/Stack turns |
+| Serving (v3) | Stack inference → **KServe vLLM** (`vllm-inference/llama-32-3b-instruct`) |
+| Safety (v3 add-on) | **TrustyAI** Guardrails Orchestrator — agent calls GO HTTPS directly (PII regex); not required for chat/RAG |
+| Observability (v3 add-on) | **MLflow** (RHOAI) — agent logs runs + GenAI spans; not required for chat/RAG |
 | UI | Streamlit: chat, tool traces, document list/upload/delete |
 | Doc formats | `.txt`, `.md`, `.pdf` (max 5 MB) |
 | Starter corpus | Empty |
@@ -49,7 +49,8 @@ Takeaway: *v1/v2 keep Azure SDK; v3 is a clean OpenShift AI rewrite of the same 
 - v1 and v2 as implemented; bootstrap per branch; demo runbook ([DEMO.md](DEMO.md))
 - LLM Secret (`LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`) via `scripts/create-llm-secret.sh` (not in git)
 - v2: `LlamaStackDistribution`, Postgres for **app RAG** (+ Stack metadata as configured), default Azure SDK → Stack `/v1`
-- v3: Stack-only app modules (`agent` / `kb` / `safety` / `tracing`) + TrustyAI + MLflow
+- v3 **core:** Stack-only modules (`agent` / `kb`) + LSD / KServe / Stack RAG
+- v3 **add-ons vs v2:** TrustyAI (`safety.py`) + MLflow (`tracing.py`)
 
 ## Out of scope
 
@@ -58,7 +59,7 @@ Takeaway: *v1/v2 keep Azure SDK; v3 is a clean OpenShift AI rewrite of the same 
 - OCR, multi-user document ACLs, preloaded sample docs
 - Llama Stack *Agents* Python SDK as the primary runtime (v3 uses OpenAI-compat client to Stack `/v1`)
 - Azure SDK / app-pgvector / provider bypass in v3
-- v2 does **not** move RAG onto Stack, TrustyAI, or MLflow (that is v3)
+- v2 does **not** move RAG onto Stack, and has **no** TrustyAI or MLflow (those are v3 add-ons)
 
 ## Extension points
 
@@ -207,31 +208,32 @@ flowchart LR
 
 ## Architecture — Version 3 (`ogx-native`)
 
-**Status:** Implemented (`ogx-native`).  
+**Status:** Implemented / deployed (`ogx-native`, image `agent:v0.2.0`).  
 **Overlay:** `deploy/overlays/ogx-native`  
 **Argo Application:** `agent-azuresdk-demo-ogx-native` (`targetRevision: ogx-native`)
 
 ### Goals
 
-1. Clean OpenShift AI app — OpenAI-compat chat + tool-calling against Stack; tool name `search_knowledge_base`.
-2. OpenShift AI on the critical path — removing Stack/KServe breaks the demo.
-3. Show breadth of RHOAI: Llama Stack Distribution, KServe/InferenceService, Stack vector IO + embeddings, **TrustyAI** (guardrails/safety via Stack), **MLflow** (runs + traces).
+1. **Core (vs v2):** Clean OpenShift AI app — OpenAI client → Stack `/v1` chat + tools; Stack vector IO for RAG; Stack → KServe for inference. Same UX tool: `search_knowledge_base`.
+2. OpenShift AI on the critical path — removing Stack/KServe breaks chat and RAG.
+3. **Add-ons vs v2 (not required for core chat/RAG):** **TrustyAI** Guardrails Orchestrator (PII shield) and **MLflow** (runs + GenAI traces).
 4. Strict GitOps; side-by-side with v1/v2 via dedicated branch + namespace.
 
-### Decisions (v3)
+### Decisions (v3) — as deployed
 
 | Topic | Choice |
 |--------|--------|
-| Chat client | **OpenAI Python SDK** → Stack `/v1` (no Azure) |
-| Serving | Stack inference → **KServe vLLM** |
-| RAG | **Stack vector IO** + Stack embeddings |
-| Doc ingest | UI → Stack `/files` + `/vector_stores` |
+| Chat client | **OpenAI Python SDK** → `http://llamastack-demo-service:8321/v1` |
+| Model id | `vllm-inference/llama-32-3b-instruct` |
+| Serving | Stack inference → **KServe** ISVC `llama-32-3b-instruct` (`my-first-model`) |
+| RAG | Stack `/files` + `/vector_stores` (`STACK_VECTOR_STORE_NAME=agent-kb`) |
+| Embeddings | Stack embedding model `sentence-transformers/nomic-ai/nomic-embed-text-v1.5` |
 | App Postgres | Stack metadata only (not app RAG) |
 | UI | No LiteMaaS/vLLM bypass |
-| TrustyAI | Agent → Guardrails Orchestrator HTTPS (PII regex); Stack may also have `trustyai_fms` |
-| MLflow | RHOAI tracking server; agent logs runs + GenAI spans |
-| Modules | `main` / `agent` / `kb` / `safety` / `tracing` / `config` / `documents` |
-| Platform prereq | DataScienceCluster: Llama Stack, TrustyAI, MLflow Managed |
+| Modules (core) | `main.py`, `agent.py`, `kb.py`, `config.py`, `documents.py` |
+| **Add-on: TrustyAI** | `safety.py` → `https://guardrails-service.my-first-model.svc:8032` (PII regex; fail-open on errors) |
+| **Add-on: MLflow** | `tracing.py` → RHOAI tracking `https://mlflow.redhat-ods-applications.svc:8443`, workspace/experiment `agent-azuresdk-demo-ogx-native` |
+| Platform prereq | DSC: Llama Stack Managed; TrustyAI + MLflow Managed for the add-ons |
 
 ### Runtime
 
@@ -247,34 +249,37 @@ flowchart TB
       Route --> UI
       UI -->|"OpenAI_client_chat_tools"| StackSvc
       UI -->|"ingest_list_delete_query"| StackSvc
-      UI -->|"PII_shield"| Trusty
-      UI -->|"runs_traces"| MLflow
       LSD --> StackSvc
     end
-    subgraph rhoai [OpenShift_AI]
+    subgraph rhoai_core [OpenShift_AI_core]
       LSO[LlamaStack_Operator]
       LSO -.->|reconcile| LSD
       KServe[KServe_InferenceService_vLLM]
       Emb[Stack_embedding_provider]
       Vec[Stack_vector_IO]
-      Trusty[TrustyAI_Guardrails_Orchestrator]
-      MLflow[MLflow_Operator_UI]
       StackSvc --> KServe
       StackSvc --> Emb
       StackSvc --> Vec
     end
+    subgraph rhoai_addons [Add_ons_vs_v2]
+      Trusty[TrustyAI_Guardrails_Orchestrator]
+      MLflow[MLflow_tracking_UI]
+      UI -->|"PII_shield_safety.py"| Trusty
+      UI -->|"runs_traces_tracing.py"| MLflow
+    end
   end
   User --> Route
-  User -->|"observe_runs_traces"| MLflow
+  User -->|"optional_observe"| MLflow
 ```
 
-### Sequence (RAG turn)
+### Sequence (chat turn — core + add-ons)
 
 ```mermaid
 sequenceDiagram
   participant U as User
   participant UI as main.py
-  participant Safe as safety.py
+  participant Safe as safety.py_addon
+  participant Trace as tracing.py_addon
   participant A as agent.py
   participant K as kb.py
   participant S as Llama_Stack
@@ -283,8 +288,9 @@ sequenceDiagram
   UI->>K: ingest
   K->>S: files_plus_vector_stores
   U->>UI: chat_question
+  UI->>Trace: chat_run
   UI->>Safe: check_prompt
-  alt PII
+  alt PII_blocked_addon
     Safe-->>UI: blocked
   else ok
     UI->>A: run_agent
@@ -298,14 +304,14 @@ sequenceDiagram
 
 ### App layout (v3)
 
-| File | Role |
-|------|------|
-| `main.py` | Streamlit UI |
-| `agent.py` | OpenAI client → Stack + tool loop |
-| `kb.py` | Stack vector store ingest/list/delete/search |
-| `safety.py` | TrustyAI Guardrails PII check |
-| `tracing.py` | MLflow runs + spans |
-| `config.py` / `documents.py` | Env + upload validation |
+| File | Role | vs v2 |
+|------|------|--------|
+| `main.py` | Streamlit UI | Rewritten (no provider switch) |
+| `agent.py` | OpenAI client → Stack + tool loop | Replaces Azure `agent/loop.py` |
+| `kb.py` | Stack vector store ingest/list/delete/search | Replaces app-pgvector RAG |
+| `config.py` / `documents.py` | Env + upload validation | Slimmed |
+| `safety.py` | TrustyAI Guardrails PII check | **Add-on** (new) |
+| `tracing.py` | MLflow runs + spans | **Add-on** (new) |
 
 **Removed vs v2:** `azure-*`, `agent/loop.py`, `tools/rag.py`, `db.py`, `embeddings.py`, `stack_kb.py`, provider switcher, local `fastembed` / app-pgvector RAG.
 
@@ -326,24 +332,26 @@ Narrative delta: [CHANGES.md](CHANGES.md) § v2 → v3. Runbook copy: [DEMO.md](
 
 ### OpenShift AI demo checklist
 
-**P0**
+**P0 — core (deployed)**
 
 - [x] Llama Stack Distribution Ready
 - [x] OpenAI client chat only via Stack `/v1`
 - [x] KServe-served model for generation
 - [x] Document ingest + delete via Stack
 - [x] `search_knowledge_base` grounded from Stack vector IO
-- [x] **TrustyAI** PII shield (blocked sample prompt)
-- [x] **MLflow** run + trace for a chat turn
-- [x] GitOps Application Synced/Healthy
+- [x] Embeddings fully via Stack (no local ONNX in agent)
+- [x] UI shows Stack model id
+- [x] GitOps Application Synced/Healthy (`agent:v0.2.0`)
+
+**P0 — add-ons vs v2 (deployed)**
+
+- [x] **TrustyAI** PII shield via Guardrails Orchestrator (blocked sample prompt)
+- [x] **MLflow** run + GenAI trace for a chat turn (`agent-azuresdk-demo-ogx-native`)
 
 **P1**
 
-- [x] Embeddings fully via Stack (no local ONNX in agent)
 - [ ] LSD providers: in-cluster vLLM and LiteMaaS (switch at Stack, not agent)
-- [x] UI shows Stack model id
 - [ ] TrustyAI LM-Eval smoke eval
-- [x] MLflow experiment `agent-azuresdk-demo-ogx-native`
 
 **P2 (stretch)**
 
@@ -355,12 +363,13 @@ Narrative delta: [CHANGES.md](CHANGES.md) § v2 → v3. Runbook copy: [DEMO.md](
 
 ```
 deploy/
-  overlays/ogx-native/          # agent env: Stack + TrustyAI + MLflow
+  overlays/ogx-native/          # agent env: Stack core + TrustyAI/MLflow add-on env
   gitops/application-ogx-native.yaml
   tekton/pipeline-ogx-native.yaml
+  extras/guardrails-my-first-model.yaml   # TrustyAI GO (bootstrap into my-first-model)
 ```
 
-Bootstrap: `BRANCH=ogx-native ./scripts/bootstrap.sh` (DSC: TrustyAI + MLflow Managed).
+Bootstrap: `BRANCH=ogx-native ./scripts/bootstrap.sh` (DSC: Llama Stack Managed; TrustyAI + MLflow Managed for add-ons).
 
 ---
 
@@ -368,7 +377,8 @@ Bootstrap: `BRANCH=ogx-native ./scripts/bootstrap.sh` (DSC: TrustyAI + MLflow Ma
 
 - OCP 4.20, RHOAI 3.4.2, Pipelines installed, GitOps installed via bootstrap if missing
 - Internal registry Managed; domain `apps.ocp.9jkcd.sandbox3005.opentlc.com`
-- Sample model `llama-32-3b-instruct` in `my-first-model` (v2 bypass / v3 Stack upstream)
+- Sample model `llama-32-3b-instruct` in `my-first-model` (v3 Stack → KServe upstream)
+- Guardrails Orchestrator Service in `my-first-model` (v3 TrustyAI add-on)
 
 ## Success criteria
 
@@ -376,5 +386,6 @@ Bootstrap: `BRANCH=ogx-native ./scripts/bootstrap.sh` (DSC: TrustyAI + MLflow Ma
 |---------|----------|
 | Shared | Pipeline builds image; `newTag` + push → Argo `Synced`/`Healthy`; upload → RAG tool → grounded answer → delete |
 | v1 | Works **without** Llama Stack / OpenShift AI |
-| v2 | Default chat via Stack; RAG still app-pgvector; Azure SDK config-first |
-| v3 | Clean Stack-only app; chat **and** RAG via Stack/KServe; TrustyAI blocks a PII prompt; MLflow run/trace per turn; stopping Stack/ISVC breaks the demo |
+| v2 | Default chat via Stack; RAG still app-pgvector; Azure SDK config-first; **no** TrustyAI / MLflow |
+| v3 core | Clean Stack-only app; chat **and** RAG via Stack/KServe; stopping Stack/ISVC breaks the demo |
+| v3 add-ons | TrustyAI blocks a PII prompt; MLflow shows a run/trace for a turn |
