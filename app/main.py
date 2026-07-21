@@ -76,14 +76,22 @@ def ensure_db() -> bool:
 
 def sidebar_kb() -> None:
     st.sidebar.header("Model provider")
-    default_provider = os.environ.get("MODEL_PROVIDER", "litemaas")
-    choices = ["litemaas", "vllm"]
-    if AGENT_BACKEND == "llamastack" or os.environ.get("ENABLE_LLAMA_STACK_PROVIDER") == "true":
-        choices.append("llamastack")
+    # v2: default chat through Llama Stack; litemaas/vllm are optional bypasses.
+    stack_enabled = (
+        AGENT_BACKEND == "llamastack" or os.environ.get("ENABLE_LLAMA_STACK_PROVIDER") == "true"
+    )
+    default_provider = os.environ.get(
+        "MODEL_PROVIDER", "llamastack" if stack_enabled else "litemaas"
+    )
+    if stack_enabled:
+        choices = ["llamastack", "litemaas", "vllm"]
+    else:
+        choices = ["litemaas", "vllm"]
     provider = st.sidebar.selectbox(
         "LLM endpoint",
         choices,
         index=choices.index(default_provider) if default_provider in choices else 0,
+        help="v2 default is Llama Stack. LiteMaaS/vLLM bypass OpenShift AI for contrast only.",
     )
     apply_provider(provider)
     st.sidebar.caption(f"`{config.LLM_MODEL}` @ `{config.LLM_BASE_URL}`")

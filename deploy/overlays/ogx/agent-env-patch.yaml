@@ -31,7 +31,8 @@ spec:
             - name: AGENT_BACKEND
               value: llamastack
             - name: MODEL_PROVIDER
-              value: litemaas
+              # v2 story: default chat through Llama Stack (RAG stays app-pgvector).
+              value: llamastack
             - name: ENABLE_LLAMA_STACK_PROVIDER
               value: "true"
             - name: LITEMASS_BASE_URL

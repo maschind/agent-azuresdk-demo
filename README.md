@@ -1,13 +1,14 @@
 # agent-azuresdk-demo (`ogx` / v2)
 
-OpenShift AI Llama Stack variant. Azure SDK talks to configured endpoints (LiteMaaS, in-cluster vLLM, or Llama Stack `/v1`).
+Bridge demo: same Azure SDK agent as v1, **default chat via Llama Stack**, RAG still app-pgvector. Full platform path is **v3** ([docs/SPEC-v3.md](docs/SPEC-v3.md)).
 
 | Version | Branch | Namespace |
 |---------|--------|-----------|
 | v1 | `main` | `agent-azuresdk-demo-main` |
 | v2 | `ogx` (this branch) | `agent-azuresdk-demo-ogx` |
+| v3 | `ogx` overlay `ogx-v3` (spec) | `agent-azuresdk-demo-ogx-v3` |
 
-See [docs/SPEC.md](docs/SPEC.md) and [docs/DEMO.md](docs/DEMO.md).
+See [docs/SPEC.md](docs/SPEC.md), [docs/SPEC-v3.md](docs/SPEC-v3.md), and [docs/DEMO.md](docs/DEMO.md).
 
 ## GitOps rules (source of truth = git)
 
@@ -33,4 +34,4 @@ oc -n openshift-gitops get application agent-azuresdk-demo-ogx
 oc -n agent-azuresdk-demo-ogx get route agent
 ```
 
-In the UI, switch **LLM endpoint** between `litemaas`, `vllm`, and `llamastack`.
+UI defaults to **`llamastack`**. Optional bypass: `litemaas` / `vllm`.
