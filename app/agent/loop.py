@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 from azure.ai.inference import ChatCompletionsClient
@@ -14,20 +13,10 @@ from azure.ai.inference.models import (
     ToolMessage,
     UserMessage,
 )
-from azure.core.credentials import AccessToken
+from azure.core.credentials import AzureKeyCredential
 
 import config
 from tools.rag import TOOL_DEFINITION, run_tool
-
-
-class _BearerApiKeyCredential:
-    """LiteMaaS / OpenAI-compatible APIs expect Authorization: Bearer <key>."""
-
-    def __init__(self, api_key: str) -> None:
-        self._api_key = api_key
-
-    def get_token(self, *scopes: str, **kwargs: Any) -> AccessToken:
-        return AccessToken(self._api_key, int(time.time()) + 3600)
 
 SYSTEM_PROMPT = (
     "You are a helpful demo assistant for Red Hat OpenShift AI. "
@@ -43,11 +32,19 @@ def _endpoint() -> str:
 
 
 def _client() -> ChatCompletionsClient:
+    """Build Azure AI Inference client.
+
+    AzureKeyCredential sends ``Authorization: Bearer <key>`` (and ``api-key``)
+    without requiring HTTPS — needed for in-cluster Llama Stack / vLLM (http://).
+    TokenCredential path enforces TLS and breaks those endpoints.
+    """
     if not config.LLM_API_KEY:
         raise RuntimeError("LLM_API_KEY is not set")
+    # In-cluster services often use a dummy key; EMPTY is accepted by many OpenAI-compat servers.
+    key = config.LLM_API_KEY or "EMPTY"
     return ChatCompletionsClient(
         endpoint=_endpoint(),
-        credential=_BearerApiKeyCredential(config.LLM_API_KEY),
+        credential=AzureKeyCredential(key),
     )
 
 
