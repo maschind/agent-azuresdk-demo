@@ -240,31 +240,6 @@ def _run_shield_impl(user_text: str, sid: str) -> dict[str, Any]:
         return {"ok": True, "skipped": True, "detail": str(exc)}
 
 
-def _active_trace_id() -> str | None:
-    try:
-        import mlflow
-
-        # MLflow 2.22 uses request_id on TraceInfo
-        get_id = getattr(mlflow, "get_last_active_trace_id", None)
-        if callable(get_id):
-            tid = get_id()
-            if tid:
-                return str(tid)
-        last = getattr(mlflow, "get_last_active_trace", None)
-        if callable(last):
-            tr = last()
-            if tr is not None:
-                info = getattr(tr, "info", tr)
-                return str(
-                    getattr(info, "request_id", None)
-                    or getattr(info, "trace_id", None)
-                    or ""
-                ) or None
-    except Exception:  # noqa: BLE001
-        return None
-    return None
-
-
 @contextmanager
 def mlflow_chat_run(prompt: str, model: str) -> Iterator[dict[str, Any]]:
     """Log a chat turn as an MLflow run and (when enabled) a GenAI root span/trace."""
@@ -296,6 +271,8 @@ def mlflow_chat_run(prompt: str, model: str) -> Iterator[dict[str, Any]]:
                 meta["tracing"] = tracing_enabled() and root is not None
                 if root is not None:
                     root.set_inputs({"prompt": prompt[:2000], "model": model})
+                    # LiveSpan.request_id is available while the span is open
+                    meta["trace_id"] = getattr(root, "request_id", None)
                 yield meta
                 if root is not None:
                     root.set_outputs(
@@ -305,11 +282,9 @@ def mlflow_chat_run(prompt: str, model: str) -> Iterator[dict[str, Any]]:
                             "shield_ok": meta.get("shield_ok"),
                         }
                     )
-                tid = _active_trace_id()
-                if tid:
-                    meta["trace_id"] = tid
-                    mlflow.log_param("trace_id", tid)
 
+            if meta.get("trace_id"):
+                mlflow.log_param("trace_id", meta["trace_id"])
             if "answer" in meta:
                 mlflow.log_text(str(meta["answer"])[:8000], "answer.txt")
                 mlflow.log_metric("answer_chars", len(str(meta["answer"])))
