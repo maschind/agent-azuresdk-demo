@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import json
+import time
 from typing import Any
 
 from azure.ai.inference import ChatCompletionsClient
@@ -14,10 +14,20 @@ from azure.ai.inference.models import (
     ToolMessage,
     UserMessage,
 )
-from azure.core.credentials import AzureKeyCredential
+from azure.core.credentials import AccessToken
 
 import config
 from tools.rag import TOOL_DEFINITION, run_tool
+
+
+class _BearerApiKeyCredential:
+    """LiteMaaS / OpenAI-compatible APIs expect Authorization: Bearer <key>."""
+
+    def __init__(self, api_key: str) -> None:
+        self._api_key = api_key
+
+    def get_token(self, *scopes: str, **kwargs: Any) -> AccessToken:
+        return AccessToken(self._api_key, int(time.time()) + 3600)
 
 SYSTEM_PROMPT = (
     "You are a helpful demo assistant for Red Hat OpenShift AI. "
@@ -37,7 +47,7 @@ def _client() -> ChatCompletionsClient:
         raise RuntimeError("LLM_API_KEY is not set")
     return ChatCompletionsClient(
         endpoint=_endpoint(),
-        credential=AzureKeyCredential(config.LLM_API_KEY),
+        credential=_BearerApiKeyCredential(config.LLM_API_KEY),
     )
 
 
