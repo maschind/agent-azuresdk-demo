@@ -23,7 +23,7 @@ Both branches are buildable in parallel. Each has its own namespace (branch suff
 | Doc formats | `.txt`, `.md`, `.pdf` (max 5 MB) |
 | Starter corpus | Empty |
 | Build | Tekton per branch → internal registry |
-| Deploy | GitOps; app release = manual Kustomize `images.newTag` only |
+| Deploy | **Strict GitOps:** Argo CD Application is the only applicator of `deploy/overlays/*`; app release = manual Kustomize `images.newTag` + git push only (`scripts/gitops-release.sh`). No routine `oc apply -k` / `oc set image` / `oc set env`. |
 | Git layout | Clean split: v1 deployables on `main`, v2 on `ogx` |
 
 ## In scope
@@ -181,6 +181,7 @@ flowchart LR
 
 ## Success criteria
 
-- Pipeline builds image; manual `newTag` rolls app via GitOps
+- Pipeline builds image; manual `newTag` + push rolls app via Argo CD (`Synced` / `Healthy`)
+- Argo Application can reconcile the overlay (controller has `admin` on the target namespace via `deploy/gitops/argocd-namespace-rbac.yaml`)
 - Upload → RAG tool → grounded answer → delete
 - v1 works without Llama Stack; v2 uses Stack APIs with Azure SDK config-first

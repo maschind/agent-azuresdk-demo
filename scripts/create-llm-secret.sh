@@ -108,6 +108,7 @@ fi
 unset LLM_API_KEY VLLM_API_TOKEN REPLY
 
 echo ""
-echo "Done. Secrets applied in namespace ${NAMESPACE}."
-echo "Restart the agent if it was already running:"
+echo "Done. Secrets applied in namespace ${NAMESPACE} (out of band — not in git)."
+echo "Secret rotation is outside GitOps; restart the agent once:"
 echo "  oc -n ${NAMESPACE} rollout restart deploy/agent"
+echo "Do not oc set env / oc apply -k for app config — change git and let Argo sync."

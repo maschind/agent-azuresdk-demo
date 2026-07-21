@@ -5,6 +5,8 @@ metadata:
   namespace: openshift-gitops
   labels:
     app.kubernetes.io/part-of: agent-azuresdk-demo
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io/cascade-foreground
 spec:
   project: default
   source:
@@ -20,3 +22,18 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+      - ApplyOutOfSyncOnly=true
+  # Secrets use stringData in git → data at rest; ignore byte encoding drift.
+  # Out-of-band Secrets (llm-credentials, llama-stack-inference) are not in git.
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      jsonPointers:
+        - /data
+        - /stringData
+    - group: llamastack.io
+      kind: LlamaStackDistribution
+      jsonPointers:
+        - /status
+        - /metadata/annotations

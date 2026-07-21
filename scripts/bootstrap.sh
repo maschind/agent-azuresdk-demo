@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Bootstrap agent-azuresdk-demo for BRANCH=main|ogx (Linux / macOS).
+# App workload is managed only by OpenShift GitOps (Argo CD) after bootstrap.
+# Bootstrap may: create NS, out-of-band Secrets, Tekton, Argo RBAC + Application.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -28,8 +30,10 @@ GIT_REPO_URL="${GIT_REPO_URL:-https://github.com/maschind/agent-azuresdk-demo.gi
 GITHUB_USER="${GITHUB_USER:-maschind}"
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 SKIP_GITOPS="${SKIP_GITOPS:-false}"
-APPLY_DIRECT="${APPLY_DIRECT:-true}"
+# Strict GitOps: never oc apply -k the app overlay unless explicitly forced.
+APPLY_DIRECT="${APPLY_DIRECT:-false}"
 SKIP_LLM_SECRET="${SKIP_LLM_SECRET:-false}"
+RBAC_FILE="${ROOT}/deploy/gitops/argocd-namespace-rbac.yaml"
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -80,7 +84,7 @@ if [[ ! -f "${PIPELINE_FILE}" ]]; then
   exit 1
 fi
 
-echo "==> Applying Tekton pipeline resources"
+echo "==> Applying Tekton pipeline resources (build tooling; not the app runtime)"
 oc apply -f "${PIPELINE_FILE}"
 
 # Allow pipeline SA to push images in this namespace
@@ -131,15 +135,35 @@ EOF
   return 1
 }
 
+grant_argocd_rbac() {
+  echo "==> Granting OpenShift GitOps admin on demo namespaces"
+  if [[ -f "${RBAC_FILE}" ]]; then
+    # Other-branch NS may be missing — apply per binding as needed.
+    oc apply -f "${RBAC_FILE}" 2>/dev/null || true
+  fi
+  oc policy add-role-to-user admin \
+    system:serviceaccount:openshift-gitops:openshift-gitops-argocd-application-controller \
+    -n "${NS}"
+}
+
 if [[ "${SKIP_GITOPS}" != "true" ]]; then
   install_gitops || {
-    echo "GitOps install failed; continuing with direct apply" >&2
-    APPLY_DIRECT=true
+    echo "GitOps install failed." >&2
+    if [[ "${APPLY_DIRECT}" != "true" ]]; then
+      echo "Set APPLY_DIRECT=true only for break-glass; otherwise fix GitOps and re-run." >&2
+      exit 1
+    fi
   }
+  grant_argocd_rbac
   if [[ -f "${APP_FILE}" ]] && oc get crd applications.argoproj.io >/dev/null 2>&1; then
     echo "==> Applying Argo CD Application (${APP_FILE})"
-    # Allow substituting repo URL if needed
     sed "s|https://github.com/maschind/agent-azuresdk-demo.git|${GIT_REPO_URL}|g" "${APP_FILE}" | oc apply -f -
+    echo "==> Requesting Argo CD sync"
+    oc -n openshift-gitops patch application "agent-azuresdk-demo-${BRANCH}" --type merge \
+      -p '{"operation":{"initiatedBy":{"username":"bootstrap"},"sync":{"prune":true}}}' 2>/dev/null || true
+  else
+    echo "Argo Application file missing or CRD not ready: ${APP_FILE}" >&2
+    exit 1
   fi
 fi
 
@@ -148,17 +172,24 @@ if [[ "${APPLY_DIRECT}" == "true" ]]; then
     echo "Overlay not found: ${OVERLAY}" >&2
     exit 1
   fi
-  echo "==> Applying manifests directly: ${OVERLAY}"
+  echo "==> BREAK-GLASS: APPLY_DIRECT=true — oc apply -k ${OVERLAY}"
+  echo "    Prefer GitOps. Revert local drift with: oc -n openshift-gitops patch application agent-azuresdk-demo-${BRANCH} ..."
   oc apply -k "${OVERLAY}"
+else
+  echo "==> Skipping direct overlay apply (GitOps is source of truth)"
 fi
 
 echo ""
 echo "Bootstrap complete for BRANCH=${BRANCH} namespace=${NS}"
-echo "Next steps:"
-echo "  1) Push this repo so Tekton can clone: ${GIT_REPO_URL} (revision ${BRANCH})"
-echo "  2) Start a build:"
+echo "Strict GitOps next steps:"
+echo "  1) Ensure this branch is pushed: ${GIT_REPO_URL} @ ${BRANCH}"
+echo "  2) Build image (Tekton):"
 echo "       oc create -f ${ROOT}/deploy/tekton/pipelinerun-${BRANCH}.yaml -n ${NS}"
-echo "  3) After build, set images.newTag in deploy/overlays/${BRANCH}/kustomization.yaml and re-apply / sync"
-echo "  4) Route:"
-oc -n "${NS}" get route agent -o jsonpath='{.spec.host}' 2>/dev/null && echo || echo "     (route appears after agent Deployment is available)"
+echo "  3) Release ONLY via images.newTag + git push (never oc set image / oc apply -k):"
+echo "       BRANCH=${BRANCH} ${ROOT}/scripts/gitops-release.sh <new-tag>"
+echo "       git add deploy/overlays/${BRANCH}/kustomization.yaml && git commit && git push"
+echo "  4) Watch sync:"
+echo "       oc -n openshift-gitops get application agent-azuresdk-demo-${BRANCH} -w"
+echo "  5) Route (after Synced):"
+oc -n "${NS}" get route agent -o jsonpath='{.spec.host}' 2>/dev/null && echo || echo "     (appears after Argo syncs the overlay)"
 echo ""

@@ -9,6 +9,14 @@ OpenShift AI Llama Stack variant. Azure SDK talks to configured endpoints (LiteM
 
 See [docs/SPEC.md](docs/SPEC.md) and [docs/DEMO.md](docs/DEMO.md).
 
+## GitOps rules (source of truth = git)
+
+- **Runtime manifests** live under `deploy/overlays/<branch>` and are applied **only** by the Argo CD Application in `deploy/gitops/`.
+- **App release:** change only `images[].newTag` in `deploy/overlays/<branch>/kustomization.yaml`, commit, push. Use `scripts/gitops-release.sh`.
+- **Do not** `oc apply -k`, `oc set image`, or `oc set env` on the agent for routine changes (breaks sync). Break-glass: `APPLY_DIRECT=true` on bootstrap only.
+- **Secrets** `llm-credentials` / `llama-stack-inference` are created out of band (`scripts/create-llm-secret.sh`); never committed.
+- **Tekton** builds images; it does not deploy the app.
+
 ## Quick start (v2 / ogx)
 
 ```bash
@@ -16,17 +24,13 @@ oc login ...
 git checkout ogx
 export BRANCH=ogx
 ./scripts/bootstrap.sh
-# Prompts for LLM URL, model, and API key; creates Secrets (not stored in git).
-# Standalone: BRANCH=ogx ./scripts/create-llm-secret.sh
-```
+# Prompts for LLM URL/model/key; installs Argo RBAC + Application.
 
-```bash
 oc create -f deploy/tekton/pipelinerun-ogx.yaml -n agent-azuresdk-demo-ogx
-# Align newTag in deploy/overlays/ogx/kustomization.yaml, then:
-oc apply -k deploy/overlays/ogx
+BRANCH=ogx ./scripts/gitops-release.sh v0.1.0   # if tag already matches, skip
+# commit + push kustomization if newTag changed
+oc -n openshift-gitops get application agent-azuresdk-demo-ogx
 oc -n agent-azuresdk-demo-ogx get route agent
 ```
-
-**App release:** change only `images[].newTag` in `deploy/overlays/ogx/kustomization.yaml`.
 
 In the UI, switch **LLM endpoint** between `litemaas`, `vllm`, and `llamastack`.
