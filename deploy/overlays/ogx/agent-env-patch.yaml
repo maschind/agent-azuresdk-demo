@@ -34,8 +34,21 @@ spec:
               value: litemaas
             - name: ENABLE_LLAMA_STACK_PROVIDER
               value: "true"
+            - name: LITEMASS_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: llm-credentials
+                  key: LLM_BASE_URL
+            - name: LITEMASS_MODEL
+              valueFrom:
+                secretKeyRef:
+                  name: llm-credentials
+                  key: LLM_MODEL
             - name: LLAMA_STACK_BASE_URL
               value: http://llamastack-demo-service:8321/v1
+            - name: LLAMA_STACK_MODEL
+              # Must match Llama Stack /v1/models id (provider prefix).
+              value: vllm-inference/Qwen3.6-35B-A3B
             - name: VLLM_BASE_URL
               # Headless KServe predictor: DNS is pod IP; container listens on 8080 (not service port 80).
               value: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1

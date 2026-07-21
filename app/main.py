@@ -14,22 +14,39 @@ from db import delete_document, init_schema, insert_document, list_documents
 from documents import chunk_text, extension_ok, extract_text
 from embeddings import embed_texts
 
-# Optional in-cluster vLLM (OpenShift AI sample)
+# Provider endpoints/models — dedicated env keys so Streamlit reruns cannot
+# overwrite LiteMaaS defaults when apply_provider mutates LLM_*.
 VLLM_BASE_URL = os.environ.get(
     "VLLM_BASE_URL",
     # Headless KServe predictor resolves to pod IP; listen port is 8080.
     "http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1",
 )
 VLLM_MODEL = os.environ.get("VLLM_MODEL", "llama-32-3b-instruct")
-LITEMASS_BASE_URL = os.environ.get("LITEMASS_BASE_URL", os.environ.get("LLM_BASE_URL", ""))
-LITEMASS_MODEL = os.environ.get("LITEMASS_MODEL", os.environ.get("LLM_MODEL", ""))
-LLAMA_STACK_BASE_URL = os.environ.get("LLAMA_STACK_BASE_URL", "http://llamastack-demo:8321/v1")
+LLAMA_STACK_BASE_URL = os.environ.get(
+    "LLAMA_STACK_BASE_URL",
+    "http://llamastack-demo-service:8321/v1",
+)
+# Stack model ids are provider-prefixed, e.g. vllm-inference/Qwen3.6-35B-A3B
+LLAMA_STACK_MODEL = os.environ.get("LLAMA_STACK_MODEL", "vllm-inference/Qwen3.6-35B-A3B")
 
 st.set_page_config(page_title="Azure SDK Agent Demo", page_icon="🟥", layout="wide")
 
 
+def _litemaas_endpoint() -> tuple[str, str]:
+    """LiteMaaS URL/model snapshotted once per browser session (never from mutated LLM_*)."""
+    if "litemaas_base_url" not in st.session_state:
+        st.session_state.litemaas_base_url = os.environ.get("LITEMASS_BASE_URL") or os.environ.get(
+            "LLM_BASE_URL", ""
+        )
+        st.session_state.litemaas_model = os.environ.get("LITEMASS_MODEL") or os.environ.get(
+            "LLM_MODEL", ""
+        )
+    return st.session_state.litemaas_base_url, st.session_state.litemaas_model
+
+
 def apply_provider(provider: str) -> None:
     """Config-only switch for Azure SDK endpoint/model (and optional Llama Stack)."""
+    litemaas_url, litemaas_model = _litemaas_endpoint()
     if provider == "vllm":
         os.environ["LLM_BASE_URL"] = VLLM_BASE_URL
         os.environ["LLM_MODEL"] = VLLM_MODEL
@@ -37,10 +54,12 @@ def apply_provider(provider: str) -> None:
             os.environ["LLM_API_KEY"] = "EMPTY"
     elif provider == "llamastack":
         os.environ["LLM_BASE_URL"] = LLAMA_STACK_BASE_URL
-        os.environ["LLM_MODEL"] = os.environ.get("LLAMA_STACK_MODEL", LITEMASS_MODEL)
+        os.environ["LLM_MODEL"] = LLAMA_STACK_MODEL
+        if not os.environ.get("LLM_API_KEY"):
+            os.environ["LLM_API_KEY"] = "EMPTY"
     else:
-        os.environ["LLM_BASE_URL"] = LITEMASS_BASE_URL
-        os.environ["LLM_MODEL"] = LITEMASS_MODEL
+        os.environ["LLM_BASE_URL"] = litemaas_url
+        os.environ["LLM_MODEL"] = litemaas_model
     config.LLM_BASE_URL = os.environ["LLM_BASE_URL"]
     config.LLM_MODEL = os.environ["LLM_MODEL"]
     config.LLM_API_KEY = os.environ.get("LLM_API_KEY", config.LLM_API_KEY)
