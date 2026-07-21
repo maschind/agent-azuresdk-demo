@@ -35,11 +35,17 @@ spec:
               value: agent-kb
             - name: STACK_EMBEDDING_MODEL
               value: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
+            # Cluster MLflow (RHOAI): workspace == namespace; SA auth via kubernetes-namespaced plugin
             - name: MLFLOW_TRACKING_URI
-              # Agent-local file store (ODH MLflow workspace API requires project binding + artifact secret).
-              value: file:///tmp/mlruns
+              value: https://mlflow.redhat-ods-applications.svc:8443
+            - name: MLFLOW_TRACKING_AUTH
+              value: kubernetes-namespaced
+            - name: MLFLOW_TRACKING_INSECURE_TLS
+              value: "true"
+            - name: MLFLOW_WORKSPACE
+              value: agent-azuresdk-demo-ogx-native
             - name: MLFLOW_UI_URL
-              value: https://rh-ai.apps.ocp.9jkcd.sandbox3005.opentlc.com/mlflow
+              value: https://rh-ai.apps.ocp.9jkcd.sandbox3005.opentlc.com/mlflow/#/?workspace=agent-azuresdk-demo-ogx-native
             - name: MLFLOW_EXPERIMENT
               value: agent-azuresdk-demo-ogx-native
             - name: MLFLOW_TRACING_ENABLED

@@ -15,6 +15,7 @@ from config import (
     MLFLOW_EXPERIMENT,
     MLFLOW_TRACING_ENABLED,
     MLFLOW_TRACKING_URI,
+    MLFLOW_WORKSPACE,
     TRUSTYAI_ORCHESTRATOR_URL,
     TRUSTYAI_SHIELD_ID,
 )
@@ -44,6 +45,13 @@ def configure_mlflow() -> bool:
 
         if not _mlflow_configured:
             mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+            if MLFLOW_WORKSPACE and hasattr(mlflow, "set_workspace"):
+                try:
+                    mlflow.set_workspace(MLFLOW_WORKSPACE)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning(
+                        "mlflow.set_workspace(%s) failed: %s", MLFLOW_WORKSPACE, exc
+                    )
             mlflow.set_experiment(MLFLOW_EXPERIMENT)
             _mlflow_configured = True
         return True

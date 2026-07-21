@@ -61,6 +61,7 @@ TRUSTYAI_ORCHESTRATOR_URL = optional_env("TRUSTYAI_ORCHESTRATOR_URL", "")
 MLFLOW_TRACKING_URI = optional_env("MLFLOW_TRACKING_URI", "file:///tmp/mlruns")
 MLFLOW_UI_URL = optional_env("MLFLOW_UI_URL", "")
 MLFLOW_EXPERIMENT = optional_env("MLFLOW_EXPERIMENT", "agent-azuresdk-demo-ogx-native")
+MLFLOW_WORKSPACE = optional_env("MLFLOW_WORKSPACE", "")
 # v3: MLflow GenAI traces (spans for agent / LLM / tools / TrustyAI)
 MLFLOW_TRACING_ENABLED = optional_env("MLFLOW_TRACING_ENABLED", "false").lower() in (
     "1",

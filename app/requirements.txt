@@ -6,4 +6,5 @@ pgvector==0.3.6
 fastembed==0.6.1
 pypdf==5.4.0
 httpx==0.28.1
-mlflow==2.22.0
+# RHOAI 3.4 MLflow server needs SDK >=3.11 with kubernetes-namespaced auth
+mlflow[kubernetes]>=3.11,<4

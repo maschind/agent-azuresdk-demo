@@ -7,3 +7,4 @@ resources:
   - agent.yaml
   - llamastack.yaml
   - mlflow.yaml
+  - mlflow-rbac.yaml

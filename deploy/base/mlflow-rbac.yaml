@@ -1,0 +1,17 @@
+# Allow the agent pod (default SA) to call the cluster MLflow tracking API
+# for this project's workspace (namespace == MLflow workspace).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent-mlflow-integration
+  namespace: agent-azuresdk-demo-ogx-native
+  labels:
+    app.kubernetes.io/part-of: agent-azuresdk-demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mlflow-operator-mlflow-integration
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: agent-azuresdk-demo-ogx-native
