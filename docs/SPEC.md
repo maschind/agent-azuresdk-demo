@@ -10,7 +10,7 @@ Extensible POC: Azure AI Python client + LiteMaaS / Llama Stack, RAG, Streamlit 
 |---------|------------|-----------|--------|
 | **v1** | `main` | `agent-azuresdk-demo-main` | Plain OpenShift; Azure SDK → LiteMaaS; RAG → **app** pgvector + local embeddings. **No OpenShift AI.** |
 | **v2** | `ogx` | `agent-azuresdk-demo-ogx` | **Bridge:** same agent + **same app-pgvector RAG**; **default chat** via Llama Stack `/v1`. Optional bypass to LiteMaaS / vLLM. |
-| **v3** | `ogx-native` | `agent-azuresdk-demo-ogx-native` | **Full OpenShift AI:** same Azure SDK agent; Stack / KServe RAG + inference; **TrustyAI** (safety/guardrails) + **MLflow** observability. **Spec → implement on `ogx-native`.** |
+| **v3** | `ogx-native` | `agent-azuresdk-demo-ogx-native` | **Full OpenShift AI:** same Azure SDK agent; Stack / KServe RAG + inference; **TrustyAI** (safety/guardrails) + **MLflow** observability. |
 
 Branches and namespaces stay separate so demos can run side-by-side.
 
@@ -48,7 +48,7 @@ Takeaway: *keep the Azure SDK agent; move AI plumbing onto OpenShift AI without 
 - v1 and v2 as implemented; bootstrap per branch; demo runbook ([DEMO.md](DEMO.md))
 - LLM Secret (`LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`) via `scripts/create-llm-secret.sh` (not in git)
 - v2: `LlamaStackDistribution`, Postgres for **app RAG** (+ Stack metadata as configured), default Azure SDK → Stack `/v1`
-- v3: full platform path below including TrustyAI + MLflow (implement on `ogx-native`)
+- v3: full platform path below including TrustyAI + MLflow
 
 ## Out of scope
 
@@ -205,7 +205,7 @@ flowchart LR
 
 ## Architecture — Version 3 (`ogx-native`)
 
-**Status:** Spec (implement on branch `ogx-native`).  
+**Status:** Implemented (`ogx-native`).  
 **Overlay:** `deploy/overlays/ogx-native`  
 **Argo Application:** `agent-azuresdk-demo-ogx-native` (`targetRevision: ogx-native`)
 

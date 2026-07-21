@@ -8,7 +8,7 @@ See [SPEC.md](SPEC.md) for architecture and decisions.
 
 1. **v1** (`main`): Azure SDK on plain OpenShift — chat → LiteMaaS, RAG → app pgvector. **No OpenShift AI.**
 2. **v2** (`ogx`): Same agent + same RAG; **default chat → Llama Stack**. Optional bypass `litemaas` / `vllm`.
-3. **v3** (`ogx-native`): Full OpenShift AI — chat + ingest + retrieve via Stack / KServe; **TrustyAI** guardrails; **MLflow** runs/traces (implement on `ogx-native`; see SPEC § Version 3).
+3. **v3** (`ogx-native`): Full OpenShift AI — chat + ingest + retrieve via Stack / KServe; **TrustyAI** guardrails; **MLflow** runs/traces (see SPEC § Version 3 and [CHANGES.md](CHANGES.md)).
 
 Success line: *We did not rewrite the agent — we moved AI dependencies onto OpenShift AI.*
 
@@ -24,7 +24,7 @@ Success line: *We did not rewrite the agent — we moved AI dependencies onto Op
 | RAG | App pgvector | App pgvector | Stack vector IO |
 | TrustyAI | — | — | Guardrails / safety via Stack |
 | MLflow | — | — | Runs + traces |
-| Status | Implemented | Implemented | Spec |
+| Status | Implemented | Implemented | Implemented |
 
 ---
 
@@ -37,7 +37,7 @@ git checkout main && export BRANCH=main && ./scripts/bootstrap.sh
 # v2
 git checkout ogx && export BRANCH=ogx && ./scripts/bootstrap.sh
 
-# v3 (when deployables exist)
+# v3
 git checkout ogx-native && export BRANCH=ogx-native && ./scripts/bootstrap.sh
 ```
 
@@ -90,11 +90,11 @@ oc -n openshift-gitops get application "agent-azuresdk-demo-${BRANCH}"
 3. Upload → grounded question → tool call (RAG still **app-pgvector**) → delete
 4. Optionally switch to `litemaas` or `vllm` to show bypass vs Stack
 
-### v3 — full OpenShift AI (when implemented)
+### v3 — full OpenShift AI
 
 1. `oc get route agent -n agent-azuresdk-demo-ogx-native`
 2. Chat only via Stack; no LiteMaaS/vLLM agent bypass
 3. Upload / list / delete via Stack; grounded answers from Stack vector IO
-4. **TrustyAI:** send a sample unsafe/PII prompt → show shield/block or detector hit (Stack + Guardrails Orchestrator)
-5. **MLflow:** open MLflow UI for the project → show experiment run / trace for the chat turn
+4. **TrustyAI:** send a sample PII prompt (e.g. email/SSN) → show shield block / detections (Guardrails Orchestrator)
+5. **MLflow:** open MLflow UI for workspace `agent-azuresdk-demo-ogx-native` → experiment runs + **Traces** for the chat turn
 6. In OpenShift AI console: show LSD Ready + InferenceService + TrustyAI/MLflow components; optionally stop Stack/ISVC to prove platform dependency
