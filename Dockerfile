@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/python-312:1-1760988111
+FROM registry.access.redhat.com/ubi9/python-312:1
 
 USER 0
 WORKDIR /opt/app
