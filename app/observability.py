@@ -300,6 +300,13 @@ def mlflow_chat_run(prompt: str, model: str) -> Iterator[dict[str, Any]]:
                 mlflow.log_metric("tool_calls", int(meta["tool_calls"]))
             if "shield_ok" in meta:
                 mlflow.log_param("shield_ok", meta["shield_ok"])
+            # Ensure GenAI spans reach the remote tracking server before the turn ends
+            flush = getattr(mlflow, "flush_trace_async_logging", None)
+            if callable(flush):
+                try:
+                    flush()
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("MLflow trace flush failed: %s", exc)
     except Exception as exc:  # noqa: BLE001
         log.warning("MLflow logging failed: %s", exc)
         meta["error"] = str(exc)
