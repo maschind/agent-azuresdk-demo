@@ -21,3 +21,6 @@ spec:
     - name: shared-workspace
       persistentVolumeClaim:
         claimName: agent-build-workspace
+    - name: git-auth
+      secret:
+        secretName: github-basic-auth

@@ -25,6 +25,8 @@ case "${BRANCH}" in
 esac
 
 GIT_REPO_URL="${GIT_REPO_URL:-https://github.com/maschind/agent-azuresdk-demo.git}"
+GITHUB_USER="${GITHUB_USER:-maschind}"
+GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 LLM_API_KEY="${LLM_API_KEY:-}"
 LLM_BASE_URL="${LLM_BASE_URL:-https://litellm-litemaas.apps.prod.rhoai.rh-aiservices-bu.com/v1}"
 LLM_MODEL="${LLM_MODEL:-Qwen3.6-35B-A3B}"
@@ -60,6 +62,20 @@ oc -n "${NS}" create secret generic llm-credentials \
   --from-literal=LLM_BASE_URL="${LLM_BASE_URL}" \
   --from-literal=LLM_MODEL="${LLM_MODEL}" \
   --dry-run=client -o yaml | oc apply -f -
+
+if [[ -n "${GITHUB_TOKEN}" ]]; then
+  echo "==> Creating/updating Secret github-basic-auth for Tekton git-clone"
+  TMP="$(mktemp -d)"
+  printf '%s\n' "[credential]" "	helper = store" >"${TMP}/.gitconfig"
+  printf '%s\n' "https://x-access-token:${GITHUB_TOKEN}@github.com" >"${TMP}/.git-credentials"
+  oc -n "${NS}" create secret generic github-basic-auth \
+    --from-file=.gitconfig="${TMP}/.gitconfig" \
+    --from-file=.git-credentials="${TMP}/.git-credentials" \
+    --dry-run=client -o yaml | oc apply -f -
+  rm -rf "${TMP}"
+else
+  echo "==> GITHUB_TOKEN not set; private repos need github-basic-auth for Tekton clone"
+fi
 
 if [[ ! -f "${PIPELINE_FILE}" ]]; then
   echo "Pipeline file not found for BRANCH=${BRANCH}: ${PIPELINE_FILE}" >&2

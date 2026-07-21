@@ -55,6 +55,8 @@ spec:
       default: v0.1.0
   workspaces:
     - name: shared-workspace
+    - name: git-auth
+      optional: true
   tasks:
     - name: fetch-repository
       taskRef:
@@ -74,6 +76,9 @@ spec:
       workspaces:
         - name: output
           workspace: shared-workspace
+        - name: basic-auth
+          workspace: git-auth
+          optional: true
     - name: build-and-push
       runAfter:
         - fetch-repository
