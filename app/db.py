@@ -12,16 +12,22 @@ from pgvector.psycopg import register_vector
 from config import DATABASE_URL, EMBEDDING_DIMS
 
 
-def connect() -> psycopg.Connection:
+def connect(*, register: bool = True) -> psycopg.Connection:
     conn = psycopg.connect(DATABASE_URL, autocommit=False)
-    register_vector(conn)
+    if register:
+        register_vector(conn)
     return conn
 
 
 def init_schema() -> None:
-    with connect() as conn:
+    # Extension must exist before pgvector.register_vector()
+    with connect(register=False) as conn:
         with conn.cursor() as cur:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        conn.commit()
+
+    with connect(register=True) as conn:
+        with conn.cursor() as cur:
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS documents (
