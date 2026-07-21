@@ -1,0 +1,78 @@
+# RHOAI 3.4 Llama Stack best practices: LSD + Postgres metadata Secret + remote inference.
+# Inference token Secret `llama-stack-inference` is created by scripts/bootstrap.sh (not committed).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-lsd-credentials
+  namespace: agent-azuresdk-demo-ogx
+type: Opaque
+stringData:
+  password: rag
+---
+apiVersion: llamastack.io/v1alpha1
+kind: LlamaStackDistribution
+metadata:
+  name: llamastack-demo
+  namespace: agent-azuresdk-demo-ogx
+spec:
+  replicas: 1
+  server:
+    containerSpec:
+      name: llama-stack
+      port: 8321
+      resources:
+        requests:
+          cpu: 250m
+          memory: 1Gi
+        limits:
+          cpu: "4"
+          memory: 8Gi
+      env:
+        - name: POSTGRES_HOST
+          value: postgres
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DB
+          value: rag
+        - name: POSTGRES_USER
+          value: rag
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-lsd-credentials
+              key: password
+        - name: ENABLE_SENTENCE_TRANSFORMERS
+          value: "true"
+        - name: EMBEDDING_PROVIDER
+          value: sentence-transformers
+        - name: ENABLE_INLINE_MILVUS
+          value: "true"
+        - name: INFERENCE_MODEL
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-inference
+              key: INFERENCE_MODEL
+        - name: VLLM_URL
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-inference
+              key: VLLM_URL
+        - name: VLLM_TLS_VERIFY
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-inference
+              key: VLLM_TLS_VERIFY
+        - name: VLLM_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-inference
+              key: VLLM_API_TOKEN
+        - name: VLLM_MAX_TOKENS
+          valueFrom:
+            secretKeyRef:
+              name: llama-stack-inference
+              key: VLLM_MAX_TOKENS
+    distribution:
+      name: rh-dev
+    storage:
+      size: 20Gi

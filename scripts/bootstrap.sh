@@ -7,7 +7,7 @@ BRANCH="${BRANCH:-main}"
 
 case "${BRANCH}" in
   main)
-    NS="agent-azuresdk-demo-main"
+    NS="agent-azuresdk-demo-ogx"
     OVERLAY="${ROOT}/deploy/overlays/main"
     PIPELINE_FILE="${ROOT}/deploy/tekton/pipeline-main.yaml"
     APP_FILE="${ROOT}/deploy/gitops/application-main.yaml"
@@ -25,7 +25,7 @@ case "${BRANCH}" in
 esac
 
 GIT_REPO_URL="${GIT_REPO_URL:-https://github.com/maschind/agent-azuresdk-demo.git}"
-LLM_API_KEY="${LLM_API_KEY:-sk-IiGdJctZSPkfDDTORE6JMw}"
+LLM_API_KEY="${LLM_API_KEY:-}"
 LLM_BASE_URL="${LLM_BASE_URL:-https://litellm-litemaas.apps.prod.rhoai.rh-aiservices-bu.com/v1}"
 LLM_MODEL="${LLM_MODEL:-Qwen3.6-35B-A3B}"
 SKIP_GITOPS="${SKIP_GITOPS:-false}"
@@ -41,6 +41,11 @@ need() {
 need oc
 need git
 
+if [[ -z "${LLM_API_KEY}" ]]; then
+  echo "Set LLM_API_KEY to your LiteMaaS (or provider) API key before running bootstrap." >&2
+  exit 1
+fi
+
 echo "==> Checking cluster login"
 oc whoami >/dev/null
 oc project default >/dev/null 2>&1 || true
@@ -55,6 +60,21 @@ oc -n "${NS}" create secret generic llm-credentials \
   --from-literal=LLM_BASE_URL="${LLM_BASE_URL}" \
   --from-literal=LLM_MODEL="${LLM_MODEL}" \
   --dry-run=client -o yaml | oc apply -f -
+
+if [[ "${BRANCH}" == "ogx" ]]; then
+  echo "==> Creating/updating Secret llama-stack-inference"
+  # For in-cluster vLLM, set VLLM_URL to the predictor service and VLLM_API_TOKEN=EMPTY
+  VLLM_URL="${VLLM_URL:-${LLM_BASE_URL}}"
+  VLLM_API_TOKEN="FAKESECRET_a4b5c6d7e8f9g0h1i2j3"
+  INFERENCE_MODEL="${INFERENCE_MODEL:-${LLM_MODEL}}"
+  oc -n "${NS}" create secret generic llama-stack-inference \
+    --from-literal=INFERENCE_MODEL="${INFERENCE_MODEL}" \
+    --from-literal=VLLM_URL="${VLLM_URL}" \
+    --from-literal=VLLM_TLS_VERIFY=false \
+    --from-literal=VLLM_API_TOKEN="FAKESECRET_i4j5k6l7m8n9o0p1q2r3" \
+    --from-literal=VLLM_MAX_TOKENS=4096 \
+    --dry-run=client -o yaml | oc apply -f -
+fi
 
 if [[ ! -f "${PIPELINE_FILE}" ]]; then
   echo "Pipeline file not found for BRANCH=${BRANCH}: ${PIPELINE_FILE}" >&2

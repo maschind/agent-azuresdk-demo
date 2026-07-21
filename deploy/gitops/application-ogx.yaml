@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: agent-azuresdk-demo-main
+  name: agent-azuresdk-demo-ogx
   namespace: openshift-gitops
   labels:
     app.kubernetes.io/part-of: agent-azuresdk-demo
@@ -9,11 +9,11 @@ spec:
   project: default
   source:
     repoURL: https://github.com/maschind/agent-azuresdk-demo.git
-    targetRevision: main
-    path: deploy/overlays/main
+    targetRevision: ogx
+    path: deploy/overlays/ogx
   destination:
     server: https://kubernetes.default.svc
-    namespace: agent-azuresdk-demo-main
+    namespace: agent-azuresdk-demo-ogx
   syncPolicy:
     automated:
       prune: true

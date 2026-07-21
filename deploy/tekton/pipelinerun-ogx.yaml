@@ -1,18 +1,18 @@
 # Example PipelineRun — create with:
-#   oc create -f deploy/tekton/pipelinerun-main.yaml -n agent-azuresdk-demo-main
+#   oc create -f deploy/tekton/pipelinerun-ogx.yaml -n agent-azuresdk-demo-ogx
 apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
-  generateName: agent-build-main-
-  namespace: agent-azuresdk-demo-main
+  generateName: agent-build-ogx-
+  namespace: agent-azuresdk-demo-ogx
 spec:
   pipelineRef:
-    name: agent-build-main
+    name: agent-build-ogx
   params:
     - name: git-url
       value: https://github.com/maschind/agent-azuresdk-demo.git
     - name: git-revision
-      value: main
+      value: ogx
     - name: image-tag
       value: v0.1.0
   taskRunTemplate:

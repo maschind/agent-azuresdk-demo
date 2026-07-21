@@ -1,42 +1,31 @@
-# agent-azuresdk-demo
+# agent-azuresdk-demo (`ogx` / v2)
 
-POC: Azure AI Python client + Streamlit agent on OpenShift, with pgvector RAG (upload/delete in UI), Tekton builds, and OpenShift GitOps.
+OpenShift AI Llama Stack variant. Azure SDK talks to configured endpoints (LiteMaaS, in-cluster vLLM, or Llama Stack `/v1`).
 
 | Version | Branch | Namespace |
 |---------|--------|-----------|
 | v1 | `main` | `agent-azuresdk-demo-main` |
-| v2 | `ogx` | `agent-azuresdk-demo-ogx` |
+| v2 | `ogx` (this branch) | `agent-azuresdk-demo-ogx` |
 
 See [docs/SPEC.md](docs/SPEC.md) and [docs/DEMO.md](docs/DEMO.md).
 
-## Quick start (v1)
+## Quick start (v2 / ogx)
 
 ```bash
 oc login ...
-export BRANCH=main
+git checkout ogx
+export BRANCH=ogx
 export LLM_API_KEY='your-litemaas-key'
 ./scripts/bootstrap.sh
 ```
 
-Push this repository to GitHub, then:
-
 ```bash
-oc create -f deploy/tekton/pipelinerun-main.yaml -n agent-azuresdk-demo-main
-# After Succeeded, ensure deploy/overlays/main/kustomization.yaml newTag matches
-oc apply -k deploy/overlays/main
-oc -n agent-azuresdk-demo-main get route agent
+oc create -f deploy/tekton/pipelinerun-ogx.yaml -n agent-azuresdk-demo-ogx
+# Align newTag in deploy/overlays/ogx/kustomization.yaml, then:
+oc apply -k deploy/overlays/ogx
+oc -n agent-azuresdk-demo-ogx get route agent
 ```
 
-**App release:** change only `images[].newTag` in `deploy/overlays/main/kustomization.yaml`.
+**App release:** change only `images[].newTag` in `deploy/overlays/ogx/kustomization.yaml`.
 
-## Local run (optional)
-
-```bash
-# Postgres with pgvector on localhost:5432, then:
-cd app
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-export LLM_API_KEY=... LLM_BASE_URL=... LLM_MODEL=Qwen3.6-35B-A3B
-export DATABASE_URL=postgresql://rag:rag@localhost:5432/rag
-streamlit run main.py
-```
+In the UI, switch **LLM endpoint** between `litemaas`, `vllm`, and `llamastack`.
