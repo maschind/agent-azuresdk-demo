@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import json
+import time
 from typing import Any
 
 from azure.ai.inference import ChatCompletionsClient
@@ -14,16 +14,27 @@ from azure.ai.inference.models import (
     ToolMessage,
     UserMessage,
 )
-from azure.core.credentials import AzureKeyCredential
+from azure.core.credentials import AccessToken
 
 import config
 from tools.rag import TOOL_DEFINITION, run_tool
+
+
+class _BearerApiKeyCredential:
+    """LiteMaaS / OpenAI-compatible APIs expect Authorization: Bearer <key>."""
+
+    def __init__(self, api_key: str) -> None:
+        self._api_key = api_key
+
+    def get_token(self, *scopes: str, **kwargs: Any) -> AccessToken:
+        return AccessToken(self._api_key, int(time.time()) + 3600)
 
 SYSTEM_PROMPT = (
     "You are a helpful demo assistant for Red Hat OpenShift AI. "
     "When the user asks about uploaded documents or facts that may be in the knowledge base, "
     "call the search_knowledge_base tool. Cite filenames when you use retrieved passages. "
-    "If the knowledge base is empty or has no match, say so clearly."
+    "If the knowledge base is empty or has no match, say so clearly. "
+    "Keep answers concise."
 )
 
 
@@ -36,7 +47,7 @@ def _client() -> ChatCompletionsClient:
         raise RuntimeError("LLM_API_KEY is not set")
     return ChatCompletionsClient(
         endpoint=_endpoint(),
-        credential=AzureKeyCredential(config.LLM_API_KEY),
+        credential=_BearerApiKeyCredential(config.LLM_API_KEY),
     )
 
 
@@ -54,12 +65,47 @@ def _tools() -> list[ChatCompletionsToolDefinition]:
 
 
 def _message_content(msg: Any) -> str:
+    """Extract assistant text; Qwen/LiteMaaS thinking models may leave content empty."""
     content = getattr(msg, "content", None)
-    if content is None:
-        return ""
-    if isinstance(content, str):
-        return content
-    return str(content)
+    if isinstance(content, str) and content.strip():
+        return content.strip()
+
+    for attr in ("reasoning_content", "reasoning"):
+        val = getattr(msg, attr, None)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+
+    if hasattr(msg, "as_dict"):
+        data = msg.as_dict()
+        for key in ("content", "reasoning_content", "reasoning"):
+            val = data.get(key)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+        # nested provider fields
+        nested = data.get("provider_specific_fields") or {}
+        for key in ("reasoning_content", "reasoning"):
+            val = nested.get(key)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+
+    return ""
+
+
+def _complete(client: ChatCompletionsClient, messages: list[Any], *, with_tools: bool = True):
+    kwargs: dict[str, Any] = {
+        "messages": messages,
+        "model": config.LLM_MODEL,
+        "temperature": 0.2,
+        "max_tokens": 2048,
+        # Disable Qwen3 "thinking" so content is returned in message.content
+        "model_extras": {
+            "chat_template_kwargs": {"enable_thinking": False},
+            "enable_thinking": False,
+        },
+    }
+    if with_tools:
+        kwargs["tools"] = _tools()
+    return client.complete(**kwargs)
 
 
 def run_agent(user_text: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
@@ -67,6 +113,9 @@ def run_agent(user_text: str, history: list[dict[str, str]] | None = None) -> di
     Run one user turn. Returns {answer, tool_traces, messages}.
     history items: {role: user|assistant, content: str}
     """
+    if not config.LLM_BASE_URL or not config.LLM_MODEL:
+        raise RuntimeError("LLM_BASE_URL and LLM_MODEL must be set (Secret llm-credentials)")
+
     client = _client()
     messages: list[Any] = [SystemMessage(content=SYSTEM_PROMPT)]
     for item in history or []:
@@ -82,18 +131,12 @@ def run_agent(user_text: str, history: list[dict[str, str]] | None = None) -> di
     max_rounds = 4
 
     for _ in range(max_rounds):
-        response = client.complete(
-            messages=messages,
-            model=config.LLM_MODEL,
-            tools=_tools(),
-            temperature=0.2,
-        )
+        response = _complete(client, messages, with_tools=True)
         choice = response.choices[0]
         message = choice.message
         tool_calls = getattr(message, "tool_calls", None) or []
 
         if tool_calls:
-            # Append assistant message with tool calls
             messages.append(message)
             for call in tool_calls:
                 fn = call.function
@@ -116,6 +159,10 @@ def run_agent(user_text: str, history: list[dict[str, str]] | None = None) -> di
             continue
 
         answer = _message_content(message)
+        if not answer:
+            answer = (
+                "(Model returned an empty message. Try again, or check LiteMaaS model settings.)"
+            )
         return {
             "answer": answer,
             "tool_traces": tool_traces,
@@ -133,10 +180,9 @@ def run_agent(user_text: str, history: list[dict[str, str]] | None = None) -> di
 
 def ping_llm() -> str:
     client = _client()
-    response = client.complete(
-        messages=[UserMessage(content="Reply with OK")],
-        model=config.LLM_MODEL,
-        temperature=0,
-        max_tokens=8,
+    response = _complete(
+        client,
+        [UserMessage(content="Reply with the single word OK")],
+        with_tools=False,
     )
     return _message_content(response.choices[0].message)
