@@ -16,12 +16,10 @@ def optional_env(name: str, default: str = "") -> str:
     return os.environ.get(name, default)
 
 
-LLM_API_KEY = optional_env("LLM_API_KEY")
-LLM_BASE_URL = optional_env(
-    "LLM_BASE_URL",
-    "https://litellm-litemaas.apps.prod.rhoai.rh-aiservices-bu.com/v1",
-)
-LLM_MODEL = optional_env("LLM_MODEL", "Qwen3.6-35B-A3B")
+# Populated from OpenShift Secret llm-credentials (scripts/create-llm-secret.sh)
+LLM_API_KEY = optional_env("LLM_API_KEY", "")
+LLM_BASE_URL = optional_env("LLM_BASE_URL", "")
+LLM_MODEL = optional_env("LLM_MODEL", "")
 
 DATABASE_URL = optional_env(
     "DATABASE_URL",

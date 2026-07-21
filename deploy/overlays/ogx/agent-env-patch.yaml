@@ -36,8 +36,6 @@ spec:
               value: "true"
             - name: LLAMA_STACK_BASE_URL
               value: http://llamastack-demo:8321/v1
-            - name: LITEMASS_BASE_URL
-              value: https://litellm-litemaas.apps.prod.rhoai.rh-aiservices-bu.com/v1
             - name: VLLM_BASE_URL
               value: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local/v1
             - name: VLLM_MODEL

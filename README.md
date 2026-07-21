@@ -15,8 +15,9 @@ See [docs/SPEC.md](docs/SPEC.md) and [docs/DEMO.md](docs/DEMO.md).
 oc login ...
 git checkout ogx
 export BRANCH=ogx
-export LLM_API_KEY='your-litemaas-key'
 ./scripts/bootstrap.sh
+# Prompts for LLM URL, model, and API key; creates Secrets (not stored in git).
+# Standalone: BRANCH=ogx ./scripts/create-llm-secret.sh
 ```
 
 ```bash

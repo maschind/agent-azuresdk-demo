@@ -25,11 +25,11 @@ case "${BRANCH}" in
 esac
 
 GIT_REPO_URL="${GIT_REPO_URL:-https://github.com/maschind/agent-azuresdk-demo.git}"
-LLM_API_KEY="${LLM_API_KEY:-}"
-LLM_BASE_URL="${LLM_BASE_URL:-https://litellm-litemaas.apps.prod.rhoai.rh-aiservices-bu.com/v1}"
-LLM_MODEL="${LLM_MODEL:-Qwen3.6-35B-A3B}"
+GITHUB_USER="${GITHUB_USER:-maschind}"
+GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 SKIP_GITOPS="${SKIP_GITOPS:-false}"
 APPLY_DIRECT="${APPLY_DIRECT:-true}"
+SKIP_LLM_SECRET="${SKIP_LLM_SECRET:-false}"
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -41,11 +41,6 @@ need() {
 need oc
 need git
 
-if [[ -z "${LLM_API_KEY}" ]]; then
-  echo "Set LLM_API_KEY to your LiteMaaS (or provider) API key before running bootstrap." >&2
-  exit 1
-fi
-
 echo "==> Checking cluster login"
 oc whoami >/dev/null
 oc project default >/dev/null 2>&1 || true
@@ -54,25 +49,29 @@ echo "==> Ensuring namespace ${NS}"
 oc get ns "${NS}" >/dev/null 2>&1 || oc new-project "${NS}" >/dev/null
 oc project "${NS}" >/dev/null
 
-echo "==> Creating/updating Secret llm-credentials"
-oc -n "${NS}" create secret generic llm-credentials \
-  --from-literal=LLM_API_KEY="${LLM_API_KEY}" \
-  --from-literal=LLM_BASE_URL="${LLM_BASE_URL}" \
-  --from-literal=LLM_MODEL="${LLM_MODEL}" \
-  --dry-run=client -o yaml | oc apply -f -
+if [[ "${SKIP_LLM_SECRET}" != "true" ]]; then
+  echo "==> LLM credentials (interactive — nothing committed to git)"
+  BRANCH="${BRANCH}" NAMESPACE="${NS}" "${ROOT}/scripts/create-llm-secret.sh"
+else
+  if ! oc -n "${NS}" get secret llm-credentials >/dev/null 2>&1; then
+    echo "Secret llm-credentials missing. Run: BRANCH=${BRANCH} ./scripts/create-llm-secret.sh" >&2
+    exit 1
+  fi
+  echo "==> Reusing existing Secret llm-credentials (SKIP_LLM_SECRET=true)"
+fi
 
-if [[ "${BRANCH}" == "ogx" ]]; then
-  echo "==> Creating/updating Secret llama-stack-inference"
-  VLLM_URL="${VLLM_URL:-${LLM_BASE_URL}}"
-  VLLM_API_TOKEN="FAKESECRET_a4b5c6d7e8f9g0h1i2j3"
-  INFERENCE_MODEL="${INFERENCE_MODEL:-${LLM_MODEL}}"
-  oc -n "${NS}" create secret generic llama-stack-inference \
-    --from-literal=INFERENCE_MODEL="${INFERENCE_MODEL}" \
-    --from-literal=VLLM_URL="${VLLM_URL}" \
-    --from-literal=VLLM_TLS_VERIFY=false \
-    --from-literal=VLLM_API_TOKEN="FAKESECRET_i4j5k6l7m8n9o0p1q2r3" \
-    --from-literal=VLLM_MAX_TOKENS=4096 \
+if [[ -n "${GITHUB_TOKEN}" ]]; then
+  echo "==> Creating/updating Secret github-basic-auth for Tekton git-clone"
+  TMP="$(mktemp -d)"
+  printf '%s\n' "[credential]" "	helper = store" >"${TMP}/.gitconfig"
+  printf '%s\n' "https://x-access-token:${GITHUB_TOKEN}@github.com" >"${TMP}/.git-credentials"
+  oc -n "${NS}" create secret generic github-basic-auth \
+    --from-file=.gitconfig="${TMP}/.gitconfig" \
+    --from-file=.git-credentials="${TMP}/.git-credentials" \
     --dry-run=client -o yaml | oc apply -f -
+  rm -rf "${TMP}"
+else
+  echo "==> GITHUB_TOKEN not set (optional for public repos)"
 fi
 
 if [[ ! -f "${PIPELINE_FILE}" ]]; then
