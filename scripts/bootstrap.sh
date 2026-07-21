@@ -7,7 +7,7 @@ BRANCH="${BRANCH:-main}"
 
 case "${BRANCH}" in
   main)
-    NS="agent-azuresdk-demo-ogx"
+    NS="agent-azuresdk-demo-main"
     OVERLAY="${ROOT}/deploy/overlays/main"
     PIPELINE_FILE="${ROOT}/deploy/tekton/pipeline-main.yaml"
     APP_FILE="${ROOT}/deploy/gitops/application-main.yaml"
@@ -63,7 +63,6 @@ oc -n "${NS}" create secret generic llm-credentials \
 
 if [[ "${BRANCH}" == "ogx" ]]; then
   echo "==> Creating/updating Secret llama-stack-inference"
-  # For in-cluster vLLM, set VLLM_URL to the predictor service and VLLM_API_TOKEN=EMPTY
   VLLM_URL="${VLLM_URL:-${LLM_BASE_URL}}"
   VLLM_API_TOKEN="FAKESECRET_a4b5c6d7e8f9g0h1i2j3"
   INFERENCE_MODEL="${INFERENCE_MODEL:-${LLM_MODEL}}"
