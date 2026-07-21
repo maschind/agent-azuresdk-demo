@@ -47,9 +47,11 @@ spec:
           value: sentence-transformers
         - name: ENABLE_INLINE_MILVUS
           value: "true"
-        # rh-dev config.yaml maps this into trustyai_fms.orchestrator_url
+        # rh-dev config.yaml maps these into trustyai_fms (GO serves TLS on 8032)
         - name: FMS_ORCHESTRATOR_URL
-          value: http://guardrails-service.my-first-model.svc:8032
+          value: https://guardrails-service.my-first-model.svc:8032
+        - name: FMS_VERIFY_SSL
+          value: "false"
         - name: INFERENCE_MODEL
           valueFrom:
             secretKeyRef:

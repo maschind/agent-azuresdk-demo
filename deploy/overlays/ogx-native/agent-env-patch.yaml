@@ -46,4 +46,4 @@ spec:
             - name: TRUSTYAI_SHIELD_ID
               value: built-in-detector
             - name: TRUSTYAI_ORCHESTRATOR_URL
-              value: http://guardrails-service.my-first-model.svc:8032
+              value: https://guardrails-service.my-first-model.svc:8032

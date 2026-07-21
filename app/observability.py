@@ -58,7 +58,13 @@ def ensure_shield(shield_id: str | None = None) -> str | None:
                 "shield_id": sid,
                 "provider_id": "trustyai_fms",
                 "provider_shield_id": sid,
-                "params": {"detector_id": sid},
+                "params": {
+                    "type": "content",
+                    "message_types": ["user", "system"],
+                    "confidence_threshold": 0.5,
+                    # GuardrailsOrchestrator autoConfig detector id
+                    "detectors": {sid: {"threshold": 0.5}},
+                },
             },
         )
         return sid
