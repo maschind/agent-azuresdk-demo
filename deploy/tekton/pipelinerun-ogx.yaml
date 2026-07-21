@@ -14,7 +14,7 @@ spec:
     - name: git-revision
       value: ogx
     - name: image-tag
-      value: v0.1.0
+      value: v0.2.0
   taskRunTemplate:
     serviceAccountName: pipeline
   workspaces:
