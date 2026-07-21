@@ -37,6 +37,7 @@ spec:
             - name: LLAMA_STACK_BASE_URL
               value: http://llamastack-demo-service:8321/v1
             - name: VLLM_BASE_URL
-              value: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local/v1
+              # Headless KServe predictor: DNS is pod IP; container listens on 8080 (not service port 80).
+              value: http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1
             - name: VLLM_MODEL
               value: llama-32-3b-instruct

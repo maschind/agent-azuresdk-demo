@@ -17,7 +17,8 @@ from embeddings import embed_texts
 # Optional in-cluster vLLM (OpenShift AI sample)
 VLLM_BASE_URL = os.environ.get(
     "VLLM_BASE_URL",
-    "http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local/v1",
+    # Headless KServe predictor resolves to pod IP; listen port is 8080.
+    "http://llama-32-3b-instruct-predictor.my-first-model.svc.cluster.local:8080/v1",
 )
 VLLM_MODEL = os.environ.get("VLLM_MODEL", "llama-32-3b-instruct")
 LITEMASS_BASE_URL = os.environ.get("LITEMASS_BASE_URL", os.environ.get("LLM_BASE_URL", ""))
