@@ -60,7 +60,7 @@ flowchart TB
 
 ## v2 → v3 (OpenShift AI only — clean app)
 
-**Intent:** Drop Azure / pgvector / provider bypass. v3 is a **small OpenShift AI app**: OpenAI client → Stack, Stack RAG, TrustyAI, MLflow.
+**Intent:** Drop Azure / pgvector / provider bypass. v3 **core** is a small OpenShift AI app: OpenAI client → Stack, Stack RAG, KServe. **Add-ons vs v2:** TrustyAI (PII shield) + MLflow (runs/traces).
 
 **Code diff (GitHub):** https://github.com/maschind/agent-azuresdk-demo/compare/ogx...ogx-native
 
