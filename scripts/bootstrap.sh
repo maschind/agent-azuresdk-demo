@@ -25,7 +25,7 @@ case "${BRANCH}" in
 esac
 
 GIT_REPO_URL="${GIT_REPO_URL:-https://github.com/maschind/agent-azuresdk-demo.git}"
-LLM_API_KEY="${LLM_API_KEY:-sk-IiGdJctZSPkfDDTORE6JMw}"
+LLM_API_KEY="${LLM_API_KEY:-}"
 LLM_BASE_URL="${LLM_BASE_URL:-https://litellm-litemaas.apps.prod.rhoai.rh-aiservices-bu.com/v1}"
 LLM_MODEL="${LLM_MODEL:-Qwen3.6-35B-A3B}"
 SKIP_GITOPS="${SKIP_GITOPS:-false}"
@@ -40,6 +40,11 @@ need() {
 
 need oc
 need git
+
+if [[ -z "${LLM_API_KEY}" ]]; then
+  echo "Set LLM_API_KEY to your LiteMaaS (or provider) API key before running bootstrap." >&2
+  exit 1
+fi
 
 echo "==> Checking cluster login"
 oc whoami >/dev/null

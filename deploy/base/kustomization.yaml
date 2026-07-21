@@ -5,7 +5,3 @@ resources:
   - namespace.yaml
   - postgres.yaml
   - agent.yaml
-images:
-  - name: agent
-    newName: image-registry.openshift-image-registry.svc:5000/agent-azuresdk-demo-main/agent
-    newTag: latest
