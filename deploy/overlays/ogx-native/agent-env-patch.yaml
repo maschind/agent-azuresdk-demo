@@ -36,8 +36,13 @@ spec:
             - name: STACK_EMBEDDING_MODEL
               value: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
             - name: MLFLOW_TRACKING_URI
-              value: http://mlflow:5000
+              # Agent-local file store (ODH MLflow workspace API requires project binding + artifact secret).
+              value: file:///tmp/mlruns
+            - name: MLFLOW_UI_URL
+              value: https://rh-ai.apps.ocp.9jkcd.sandbox3005.opentlc.com/mlflow
             - name: MLFLOW_EXPERIMENT
               value: agent-azuresdk-demo-ogx-native
             - name: TRUSTYAI_SHIELD_ID
               value: ""
+            - name: TRUSTYAI_ORCHESTRATOR_URL
+              value: https://guardrails-service.my-first-model.svc:8032

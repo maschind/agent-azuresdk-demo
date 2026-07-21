@@ -1,0 +1,14 @@
+# TrustyAI Guardrails next to the sample InferenceService (cross-namespace from v3 app).
+# Applied by bootstrap for BRANCH=ogx-native (not in the Argo overlay — destination NS differs).
+apiVersion: trustyai.opendatahub.io/v1alpha1
+kind: GuardrailsOrchestrator
+metadata:
+  name: guardrails
+  namespace: my-first-model
+  labels:
+    app.kubernetes.io/part-of: agent-azuresdk-demo
+spec:
+  replicas: 1
+  enableBuiltInDetectors: true
+  autoConfig:
+    inferenceServiceToGuardrail: llama-32-3b-instruct

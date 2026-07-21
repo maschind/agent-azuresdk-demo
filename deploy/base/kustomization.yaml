@@ -7,4 +7,3 @@ resources:
   - agent.yaml
   - llamastack.yaml
   - mlflow.yaml
-  - trustyai.yaml

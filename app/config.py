@@ -57,5 +57,7 @@ ENABLE_PROVIDER_BYPASS = optional_env("ENABLE_PROVIDER_BYPASS", "true").lower() 
 )
 
 TRUSTYAI_SHIELD_ID = optional_env("TRUSTYAI_SHIELD_ID", "")
-MLFLOW_TRACKING_URI = optional_env("MLFLOW_TRACKING_URI", "")
+TRUSTYAI_ORCHESTRATOR_URL = optional_env("TRUSTYAI_ORCHESTRATOR_URL", "")
+MLFLOW_TRACKING_URI = optional_env("MLFLOW_TRACKING_URI", "file:///tmp/mlruns")
+MLFLOW_UI_URL = optional_env("MLFLOW_UI_URL", "")
 MLFLOW_EXPERIMENT = optional_env("MLFLOW_EXPERIMENT", "agent-azuresdk-demo-ogx-native")

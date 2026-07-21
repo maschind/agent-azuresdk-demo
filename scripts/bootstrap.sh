@@ -90,6 +90,14 @@ if [[ ! -f "${PIPELINE_FILE}" ]]; then
   exit 1
 fi
 
+if [[ "${BRANCH}" == "ogx-native" ]]; then
+  echo "==> Applying TrustyAI GuardrailsOrchestrator beside sample InferenceService (my-first-model)"
+  oc apply -f "${ROOT}/deploy/extras/guardrails-my-first-model.yaml"
+  if [[ -f "${ROOT}/deploy/gitops/argocd-extra-rbac.yaml" ]]; then
+    oc apply -f "${ROOT}/deploy/gitops/argocd-extra-rbac.yaml"
+  fi
+fi
+
 echo "==> Applying Tekton pipeline resources (build tooling; not the app runtime)"
 oc apply -f "${PIPELINE_FILE}"
 

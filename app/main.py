@@ -255,7 +255,16 @@ def main() -> None:
                                     language="json",
                                 )
                     with st.expander("Observability (TrustyAI / MLflow)"):
-                        st.json({"shield": shield, "mlflow": mf})
+                        st.json(
+                            {
+                                "shield": shield,
+                                "mlflow": mf,
+                                "mlflow_ui": os.environ.get("MLFLOW_UI_URL", ""),
+                                "trustyai_orchestrator": os.environ.get(
+                                    "TRUSTYAI_ORCHESTRATOR_URL", ""
+                                ),
+                            }
+                        )
                 except Exception as exc:  # noqa: BLE001
                     answer = f"Error: {exc}"
                     st.error(answer)
